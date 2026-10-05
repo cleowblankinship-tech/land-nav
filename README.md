@@ -10,7 +10,7 @@ phone's GPS only *confirms* a find. Static site, no backend, no accounts. Works 
 |---|---|---|
 | `setup.html` | course setter | boundary (OSM/Overpass or hand-drawn), start point, point generation, lane card, share link, printable MGRS-grid map |
 | `card.html#…` | navigator | printable lane card (no map): start + P1–Pn MGRS, IDs, time limit |
-| `run.html#…` | navigator | plan → clock → check-ins (no map, no position) → results + reveal map |
+| `run.html#…` | navigator | plan, then clock and check-ins (no map, no position), then results and reveal map. Practice mode on the plan screen shows live distance and bearing, unscored |
 | `score.html` | either | score a GPX file (Strava/Garmin) against a course |
 
 ## How check-in works
