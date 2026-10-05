@@ -17,6 +17,11 @@
   <div id="map" style="position:relative"><div id="hint" class="hint hidden"></div></div>
   <div class="panel no-print">
 
+    <div class="row" id="resetBar" style="margin-bottom:10px">
+      <button id="clearPts" class="small danger">Clear points</button>
+      <button id="startOver" class="small danger">Start over</button>
+    </div>
+
     <details open>
       <summary>1 · Area</summary>
       <div class="body">
@@ -31,6 +36,10 @@
           <button id="viewBoxBtn" class="small">Use current view</button>
           <button id="clearBoundary" class="small danger">Clear</button>
         </div>
+        <div class="row hidden" id="drawTools">
+          <button id="undoCorner" class="small">Undo last corner</button>
+          <button id="cancelDraw" class="small danger">Cancel drawing</button>
+        </div>
         <div id="boundaryInfo" class="muted small">No boundary yet.</div>
       </div>
     </details>
@@ -40,6 +49,7 @@
       <div class="body">
         <div class="row"><button id="startBtn" class="olive">Tap map to set start</button></div>
         <div id="startInfo" class="muted small">Not set (parking lot / trailhead).</div>
+        <button id="clearStart" class="small danger hidden">Clear start point</button>
       </div>
     </details>
 
