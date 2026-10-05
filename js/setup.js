@@ -10,18 +10,23 @@ import { Dem } from './dem.js';
 const $ = (id) => document.getElementById(id);
 const DRAFT_KEY = 'ln.setup.draft.v1';
 
+function defaultSettings() {
+  return {
+    n: DEFAULTS.n, miles: DEFAULTS.targetMiles, spacing: DEFAULTS.minSpacing, radius: DEFAULTS.radius,
+    limit: DEFAULTS.limitMin, need: DEFAULTS.need, endAtStart: DEFAULTS.endAtStart,
+    useSlope: true, maxSlope: DEFAULTS.maxSlope,
+    useTrails: true, trailMax: DEFAULTS.trailMax, offTrail: DEFAULTS.offTrailMin, edge: DEFAULTS.edgeBuffer,
+  };
+}
+
 // ------------------------------------------------------------------ state ---
 const S = {
   name: '',
   boundary: null, // { rings:[[{lat,lon}]], holes:[[{lat,lon}]], label }
   start: null,
   points: [], // [{id,lat,lon}]
-  settings: {
-    n: DEFAULTS.n, miles: DEFAULTS.targetMiles, spacing: DEFAULTS.minSpacing, radius: DEFAULTS.radius,
-    limit: DEFAULTS.limitMin, need: DEFAULTS.need, endAtStart: DEFAULTS.endAtStart,
-    useSlope: true, maxSlope: DEFAULTS.maxSlope,
-    useTrails: true, trailMax: DEFAULTS.trailMax, offTrail: DEFAULTS.offTrailMin, edge: DEFAULTS.edgeBuffer,
-  },
+  settings: defaultSettings(),
+
   constraints: null, // parsed OSM data for the current boundary
   constraintsKey: '',
   dem: null,
@@ -143,6 +148,7 @@ function setMode(mode) {
   $('drawBtn').classList.toggle('on', mode === 'draw');
   $('drawBtn').textContent = mode === 'draw' ? 'Finish polygon' : 'Draw polygon';
   map.getContainer().style.cursor = mode ? 'crosshair' : '';
+  $('drawTools').classList.toggle('hidden', mode !== 'draw');
   hint(mode === 'start' ? 'Tap the map to place the start point' : mode === 'draw' ? 'Tap to add corners, then “Finish polygon”' : '');
 }
 function finishDraw() {
@@ -183,6 +189,64 @@ map.on('click', (e) => {
     drawing.pts.forEach((p) => L.circleMarker([p.lat, p.lon], { radius: 5, color: '#c2410c', fillOpacity: 1 }).addTo(drawLayer));
   }
 });
+
+// ------------------------------------------------------- clear / restart ---
+function cancelDraw() {
+  drawLayer.clearLayers();
+  drawing = null;
+  setMode(null);
+}
+$('undoCorner').onclick = () => {
+  if (!drawing) return;
+  drawing.pts.pop();
+  drawLayer.clearLayers();
+  if (drawing.pts.length) {
+    L.polyline(drawing.pts.map((p) => [p.lat, p.lon]), { color: '#c2410c', weight: 3 }).addTo(drawLayer);
+    drawing.pts.forEach((p) => L.circleMarker([p.lat, p.lon], { radius: 5, color: '#c2410c', fillOpacity: 1 }).addTo(drawLayer));
+  }
+};
+$('cancelDraw').onclick = cancelDraw;
+
+function clearPoints(msg = 'Points cleared — boundary, start and settings kept.') {
+  S.points = [];
+  S.warnings = {};
+  renderAll();
+  saveDraft();
+  updateLink();
+  status(msg, 'ok');
+}
+$('clearPts').onclick = () => {
+  if (!S.points.length) return status('No points to clear.');
+  clearPoints();
+};
+$('clearStart').onclick = () => {
+  S.start = null;
+  S.built = null;
+  S.points = [];
+  S.warnings = {};
+  renderAll();
+  saveDraft();
+  updateLink();
+  status('Start point and points cleared.', 'ok');
+};
+$('startOver').onclick = () => {
+  if ((S.boundary || S.start || S.points.length) && !confirm('Start over? This clears the boundary, start point and points, and resets all settings.')) return;
+  cancelDraw();
+  store.del(DRAFT_KEY);
+  Object.assign(S, {
+    name: '', boundary: null, start: null, points: [], settings: defaultSettings(),
+    constraints: null, constraintsKey: '', dem: null, demKey: '', built: null, warnings: {},
+  });
+  writeSettings();
+  $('placeQ').value = '';
+  $('placeRes').innerHTML = '';
+  $('boundaryRes').innerHTML = '';
+  $('showExcl').checked = false;
+  $('showTrails').checked = false;
+  renderAll();
+  updateLink();
+  status('Cleared. Pick a new area to begin.', 'ok');
+};
 
 // place search
 $('placeGo').onclick = async () => {
@@ -255,6 +319,7 @@ function renderAll() {
     L.marker([S.start.lat, S.start.lon], { icon: markerIcon('S', 'start'), interactive: false }).addTo(courseLayer);
     $('startInfo').innerHTML = `<span class="coord">${mgrs8(S.start)}</span> · ${fmtLatLon(S.start)}`;
   } else $('startInfo').textContent = 'Not set (parking lot / trailhead).';
+  $('clearStart').classList.toggle('hidden', !S.start);
   if (S.start && S.points.length) {
     const seq = [S.start, ...S.points, ...(S.settings.endAtStart ? [S.start] : [])];
     L.polyline(seq.map((p) => [p.lat, p.lon]), { color: '#c2410c', weight: 2, dashArray: '6 6', interactive: false }).addTo(courseLayer);
