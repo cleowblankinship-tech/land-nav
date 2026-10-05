@@ -13,7 +13,6 @@
 <body>
 <div class="hero"><h1>Land Nav</h1><div class="muted">Map · protractor · compass. GPS only confirms.</div></div>
 <div class="wrap">
-  <div id="resume" class="banner warn hidden"></div>
   <div class="bigbtns">
     <a class="btn olive" href="run.html" id="navBtn">Navigator<small>Open a course link and run it</small></a>
     <a class="btn" href="setup.html">Setup (course setter)<small>Build a course, lane card, and link</small></a>
@@ -36,10 +35,9 @@ document.getElementById('go').onclick = () => {
   catch (e) { alert(e.message); }
 };
 const run = store.get('ln.run');
-if (run && !run.endedAt) {
-  const el = document.getElementById('resume');
-  el.classList.remove('hidden');
-  el.innerHTML = '<b>A run is in progress.</b> <a href="run.html">Resume it</a>';
+if (run && run.startedAt && !run.endedAt) {
+  // reopening the app (e.g. from the home screen) mid-run goes straight back to the run
+  location.replace('run.html');
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
