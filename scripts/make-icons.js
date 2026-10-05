@@ -2,7 +2,7 @@
 import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
-const BG = [63, 74, 31], TAN = [228, 220, 192], ORANGE = [194, 65, 12];
+const BG = [75, 83, 32], TAN = [214, 220, 190], ORANGE = [255, 255, 255]; // olive drab, light olive, white
 
 function crc32(buf) {
   let c, crc = ~0;
@@ -57,5 +57,5 @@ writeFileSync('icons/icon-180.png', png(180, compass(1)));
 writeFileSync('icons/icon-192.png', png(192, compass(1)));
 writeFileSync('icons/icon-512.png', png(512, compass(1)));
 writeFileSync('icons/icon-maskable-512.png', png(512, compass(0.78)));
-writeFileSync('icons/icon.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#3f4a1f"/><circle cx="50" cy="50" r="38" fill="none" stroke="#e4dcc0" stroke-width="8"/><path d="M50 22 L59 50 L41 50 Z" fill="#c2410c"/><path d="M50 78 L59 50 L41 50 Z" fill="#e4dcc0"/></svg>\n`);
+writeFileSync('icons/icon.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#4b5320"/><circle cx="50" cy="50" r="38" fill="none" stroke="#d6dcbe" stroke-width="8"/><path d="M50 22 L59 50 L41 50 Z" fill="#ffffff"/><path d="M50 78 L59 50 L41 50 Z" fill="#d6dcbe"/></svg>\n`);
 console.log('icons written');
