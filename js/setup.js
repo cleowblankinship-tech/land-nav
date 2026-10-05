@@ -5,6 +5,7 @@ import { DEFAULTS, makeCourse, encodeCourse, makePointIds, mgrs8, fmtLatLon } fr
 import { createGridLayer } from './grid.js';
 import { store } from './store.js';
 import { makeBases } from './basemaps.js';
+import { Dem } from './dem.js';
 
 const $ = (id) => document.getElementById(id);
 const DRAFT_KEY = 'ln.setup.draft.v1';
@@ -18,10 +19,13 @@ const S = {
   settings: {
     n: DEFAULTS.n, miles: DEFAULTS.targetMiles, spacing: DEFAULTS.minSpacing, radius: DEFAULTS.radius,
     limit: DEFAULTS.limitMin, need: DEFAULTS.need, endAtStart: DEFAULTS.endAtStart,
+    useSlope: true, maxSlope: DEFAULTS.maxSlope,
     useTrails: true, trailMax: DEFAULTS.trailMax, offTrail: DEFAULTS.offTrailMin, edge: DEFAULTS.edgeBuffer,
   },
   constraints: null, // parsed OSM data for the current boundary
   constraintsKey: '',
+  dem: null,
+  demKey: '',
   built: null, // last buildPool result
   warnings: {}, // point id -> text
 };
@@ -36,6 +40,8 @@ function readSettings() {
   s.limit = Math.max(15, num('limit') || DEFAULTS.limitMin);
   s.need = Math.max(1, Math.min(s.n, Math.round(num('need')) || DEFAULTS.need));
   s.endAtStart = $('endAtStart').checked;
+  s.useSlope = $('useSlope').checked;
+  s.maxSlope = Math.max(5, Math.min(60, num('maxSlope') || DEFAULTS.maxSlope));
   s.useTrails = $('useTrails').checked;
   s.trailMax = Math.max(50, num('trailMax') || DEFAULTS.trailMax);
   s.offTrail = Math.max(0, isNaN(num('offTrail')) ? DEFAULTS.offTrailMin : num('offTrail'));
@@ -46,6 +52,7 @@ function writeSettings() {
   const s = S.settings;
   $('n').value = s.n; $('miles').value = s.miles; $('spacing').value = s.spacing; $('radius').value = s.radius;
   $('limit').value = s.limit; $('need').value = s.need; $('endAtStart').checked = s.endAtStart;
+  $('useSlope').checked = s.useSlope; $('maxSlope').value = s.maxSlope;
   $('useTrails').checked = s.useTrails; $('trailMax').value = s.trailMax; $('offTrail').value = s.offTrail; $('edge').value = s.edge;
   $('name').value = S.name;
 }
@@ -104,6 +111,8 @@ function setBoundary(b, { fit = true } = {}) {
   S.boundary = b;
   S.constraints = null;
   S.constraintsKey = '';
+  S.dem = null;
+  S.demKey = '';
   S.built = null;
   renderBoundary(fit);
   saveDraft();
@@ -291,7 +300,7 @@ function renderPointList() {
     row.className = 'pt-row' + (S.warnings[p.id] ? ' warn' : '');
     row.innerHTML = `<div class="pt-badge">P${i + 1}</div>
       <div class="pt-main"><div class="m coord">${mgrs8(p)}</div>
-      <div class="small muted">${p.id} · ${fmtLatLon(p)}</div>
+      <div class="small muted">${p.id} · ${fmtLatLon(p)}${terrainText(p)}</div>
       ${S.warnings[p.id] ? `<div class="small" style="color:var(--warn);font-weight:700">⚠ ${S.warnings[p.id]}</div>` : ''}</div>
       <div class="pt-actions"><button class="small icon" title="Regenerate this point" data-act="regen">↻</button><button class="small icon danger" title="Delete this point" data-act="del">✕</button></div>`;
     row.querySelector('[data-act=regen]').onclick = () => regen(i);
@@ -301,6 +310,14 @@ function renderPointList() {
   });
 }
 
+function terrainText(p) {
+  if (!S.dem) return '';
+  const el = S.dem.elevation(p.lat, p.lon);
+  const sl = S.dem.slope(p.lat, p.lon);
+  if (Number.isNaN(el)) return '';
+  return `<br>${Math.round(el * 3.28084).toLocaleString()} ft${sl != null ? ` · slope ${sl.toFixed(0)}°` : ''}`;
+}
+
 function validatePoints() {
   S.warnings = {};
   const sp = S.settings.spacing;
@@ -308,7 +325,7 @@ function validatePoints() {
     const why = [];
     if (S.built) {
       const r = S.built.check(p.lat, p.lon);
-      if (r) why.push(r === 'outside' ? 'outside the boundary' : r === 'edge' ? 'too close to the boundary edge' : `on/near excluded ground (${r})`);
+      if (r) why.push(r === 'steep ground' ? 'steep ground' : r === 'outside' ? 'outside the boundary' : r === 'edge' ? 'too close to the boundary edge' : `on/near excluded ground (${r})`);
     } else if (!boundaryContains(p.lat, p.lon)) why.push('outside the boundary');
     if (S.start && haversine(p, S.start) < sp) why.push('closer than min spacing to start');
     S.points.forEach((q, j) => { if (j !== i && haversine(p, q) < sp) why.push(`closer than min spacing to P${j + 1}`); });
@@ -363,6 +380,20 @@ async function loadConstraints() {
     return false;
   }
 }
+async function loadDem() {
+  const key = boundaryKey();
+  if (S.dem && S.demKey === key) return true;
+  const bb = bboxOfLL(S.boundary.rings.flat(), 0.002);
+  status('Loading elevation data for the slope filter…');
+  try {
+    S.dem = await Dem.load(bb);
+    S.demKey = key;
+    return true;
+  } catch (e) {
+    S.dem = null;
+    return confirm(`Couldn't load elevation data (${e.message}).\n\nGenerate WITHOUT the slope filter? Points may land on steep ground.`);
+  }
+}
 function ensureBuilt(seed = (Math.random() * 2 ** 32) >>> 0) {
   if (!S.boundary || !S.start) return null;
   const s = S.settings;
@@ -376,6 +407,8 @@ function ensureBuilt(seed = (Math.random() * 2 ** 32) >>> 0) {
     constraints: { ...c, avoidAreas: [...c.avoidAreas, ...holes] },
     opts: {
       edgeBuffer: s.edge, rng,
+      maxSlope: s.useSlope && S.dem ? s.maxSlope : null,
+      slopeFn: S.dem ? (lat, lon) => S.dem.maxSlope(lat, lon) : null,
       maxTrailDist: s.useTrails ? s.trailMax : null,
       minTrailDist: s.useTrails ? s.offTrail : 0,
     },
@@ -391,6 +424,7 @@ $('genBtn').onclick = async () => {
   $('genBtn').disabled = true;
   try {
     if (!(await loadConstraints())) return status('Cancelled.', 'warn');
+    if (S.settings.useSlope && !(await loadDem())) return status('Cancelled.', 'warn');
     const built = ensureBuilt();
     await new Promise((r) => setTimeout(r, 20)); // let the status paint
     const s = S.settings;
@@ -529,7 +563,7 @@ if (S.boundary) {
   const bb = bboxOfLL(S.boundary.rings.flat());
   map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]]);
 }
-for (const id of ['n', 'miles', 'spacing', 'radius', 'limit', 'need', 'endAtStart', 'useTrails', 'trailMax', 'offTrail', 'edge', 'name']) {
+for (const id of ['n', 'miles', 'spacing', 'radius', 'limit', 'need', 'endAtStart', 'useSlope', 'maxSlope', 'useTrails', 'trailMax', 'offTrail', 'edge', 'name']) {
   $(id).addEventListener('change', () => { readSettings(); S.built = null; saveDraft(); renderTotal(); updateLink(); });
 }
 if (!S.boundary) status('Tip: type “Palmer Park” above, press Go, then “Find park boundaries in view”.');

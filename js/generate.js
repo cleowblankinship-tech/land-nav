@@ -96,11 +96,12 @@ class LineIndex {
  *  avoidLines: [{ pts:[{lat,lon}], buffer, kind }]
  *  trails:     [{ pts:[{lat,lon}] }]           reachable ground
  *
- * opts: { edgeBuffer=30, maxTrailDist=null, minTrailDist=0, step=null, rng }
+ * opts: { edgeBuffer=30, maxTrailDist=null, minTrailDist=0, step=null, rng,
+ *         maxSlope=null (deg), slopeFn(lat,lon)->deg|null }
  * Returns { proj, pool:[{x,y}], step, stats }
  */
 export function buildPool({ boundary, start, constraints = {}, opts = {} }) {
-  const { edgeBuffer = 30, maxTrailDist = null, minTrailDist = 0 } = opts;
+  const { edgeBuffer = 30, maxTrailDist = null, minTrailDist = 0, maxSlope = null, slopeFn = null } = opts;
   const rng = opts.rng ?? Math.random;
   const proj = makeProjection(start);
   const P = (ll) => proj.toXY(ll.lat, ll.lon);
@@ -159,6 +160,11 @@ export function buildPool({ boundary, start, constraints = {}, opts = {} }) {
       const d = t ? t.dist : Infinity;
       if (maxTrailDist != null && d > maxTrailDist + slack) return 'far from any trail';
       if (minTrailDist > 0 && d < minTrailDist - slack) return 'on/too near a trail';
+    }
+    if (maxSlope != null && slopeFn) {
+      const ll = proj.toLL(x, y);
+      const sl = slopeFn(ll.lat, ll.lon);
+      if (sl != null && sl > maxSlope + (slack ? 3 : 0)) return 'steep ground';
     }
     return null;
   }

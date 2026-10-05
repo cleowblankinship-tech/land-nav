@@ -45,15 +45,18 @@ npm run vendor    # re-copy leaflet / mgrs / proj4 from node_modules into vendor
 ## Data & attribution
 
 Boundaries, water, buildings, trails etc. come from OpenStreetMap via the Overpass API.
-Basemaps: OpenTopoMap, USGS The National Map, OpenStreetMap. These are fine for personal
+Elevation: terrain tiles hosted on AWS Open Data (Mapzen Terrain Tiles). Basemaps: OpenTopoMap, USGS The National Map, OpenStreetMap. These are fine for personal
 practice use; don't hammer them. MGRS conversion uses the [`mgrs`](https://www.npmjs.com/package/mgrs)
 package; the UTM grid overlay uses `proj4`; maps use Leaflet.
 
 ## Known limits
 
 * OSM coverage varies. Points are checked against *mapped* water/buildings/cliffs/private
-  land; unmapped hazards and steep terrain (no elevation data yet) can still occur — eyeball
-  the generated course on the topo map before handing it over.
+  land; unmapped hazards can still occur — eyeball the generated course on the topo map
+  before handing it over.
+* Slope filter (default: avoid > 25°) uses free AWS terrain tiles (Terrarium, ~7 m/px at zoom 14),
+  which is good for steep hillsides but not for small rock bands or gullies. Each point's
+  elevation and slope are shown in the point list.
 * Phone browsers may throttle GPS in the background; the app holds a screen wake lock, but
   a watch/GPX backup is still the safety net.
 * Course links are only lightly obfuscated (XOR + base64url in the `#` fragment).

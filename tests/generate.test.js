@@ -114,3 +114,12 @@ test('check() explains why a spot is rejected; regeneratePoint can add a point',
   assert.ok(added);
   assert.equal(built.check(added.lat, added.lon), null);
 });
+
+test('slope filter removes steep ground', () => {
+  // everything east of x=0 is "steep"
+  const slopeFn = (lat, lon) => (proj.toXY(lat, lon)[0] > 0 ? 40 : 5);
+  const { pool, stats } = buildPool({ boundary, start, constraints: {}, opts: { rng: mulberry32(8), maxSlope: 25, slopeFn } });
+  assert.ok(pool.length > 500);
+  assert.ok(pool.every((c) => c.x <= 0));
+  assert.ok(stats.rejected['steep ground'] > 500);
+});

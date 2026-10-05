@@ -14,6 +14,7 @@ export const DEFAULTS = {
   edgeBuffer: 30, // m inside boundary
   offTrailMin: 25, // m from any trail
   trailMax: 250, // m from reachable ground
+  maxSlope: 25, // degrees; steeper ground is avoided
 };
 
 const KEY = 'LANDNAV-RANGER';
