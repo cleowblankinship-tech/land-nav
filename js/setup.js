@@ -77,7 +77,8 @@ function loadDraft() {
 }
 
 // -------------------------------------------------------------------- map ---
-const map = L.map('map', { zoomControl: true }).setView([38.8685, -104.7518], 14);
+const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([38.8685, -104.7518], 14);
+L.control.attribution({ prefix: false }).addTo(map);
 const bases = makeBases();
 bases['OpenTopoMap'].addTo(map);
 const gridLayer = createGridLayer(map);
@@ -88,6 +89,30 @@ const courseLayer = L.layerGroup().addTo(map);
 const drawLayer = L.layerGroup().addTo(map);
 L.control.layers(bases, { 'MGRS grid': gridLayer, 'Course points': courseLayer }, { collapsed: true }).addTo(map);
 L.control.scale({ imperial: true, metric: true }).addTo(map);
+
+// Phone layout: the map shrinks when you scroll the options so they get the screen,
+// and grows while you're tapping on it.
+const mainEl = document.querySelector('.setup-main');
+const panelEl = document.querySelector('.panel');
+let mapState = 'normal'; // 'normal' | 'compact' | 'full'
+let mapPinned = false; // user chose a size with the handle; stop auto-resizing
+function setMapState(st) {
+  if (st === mapState) return;
+  mapState = st;
+  mainEl.classList.toggle('map-compact', st === 'compact');
+  mainEl.classList.toggle('map-full', st === 'full');
+  setTimeout(() => map.invalidateSize(), 300);
+}
+panelEl.addEventListener('scroll', () => {
+  if (mapPinned || tapMode) return;
+  if (panelEl.scrollTop > 60 && mapState === 'normal') setMapState('compact');
+  else if (panelEl.scrollTop <= 0 && mapState === 'compact') setMapState('normal');
+}, { passive: true });
+$('mapToggle').onclick = () => {
+  mapPinned = true;
+  setMapState(mapState === 'full' ? 'compact' : 'full');
+  if (mapState === 'full') panelEl.scrollTop = 0;
+};
 
 // ----------------------------------------------------------- helpers/UI ---
 function status(msg, kind = '') {
@@ -149,11 +174,22 @@ function setMode(mode) {
   $('drawBtn').textContent = mode === 'draw' ? 'Finish polygon' : 'Draw polygon';
   map.getContainer().style.cursor = mode ? 'crosshair' : '';
   $('drawTools').classList.toggle('hidden', mode !== 'draw');
+  if (mode) { mapPinned = false; setMapState('full'); } else if (mapState === 'full' && !mapPinned) setMapState('normal');
   hint(mode === 'start' ? 'Tap the map to place the start point' : mode === 'draw' ? 'Tap to add corners, then “Finish polygon”' : '');
+}
+// Once a boundary exists, go straight to "tap to place the start" (if none yet).
+function afterBoundary() {
+  if (S.start) { setMode(null); return; }
+  panelEl.scrollTop = 0;
+  setMode('start');
 }
 function finishDraw() {
   if (drawing && drawing.pts.length >= 3) {
     setBoundary({ rings: [drawing.pts.slice()], holes: [], label: 'Hand-drawn boundary' }, { fit: false });
+    afterBoundary();
+    drawLayer.clearLayers();
+    drawing = null;
+    return;
   } else if (drawing && drawing.pts.length) {
     status('Need at least 3 corners.', 'warn');
   }
@@ -173,6 +209,7 @@ $('viewBoxBtn').onclick = () => {
   const b = map.getBounds().pad(-0.1);
   const ring = [b.getSouthWest(), b.getSouthEast(), b.getNorthEast(), b.getNorthWest()].map((p) => ({ lat: p.lat, lon: p.lng }));
   setBoundary({ rings: [ring], holes: [], label: 'Map-view box' }, { fit: false });
+  afterBoundary();
 };
 
 map.on('click', (e) => {
@@ -185,8 +222,8 @@ map.on('click', (e) => {
   } else if (tapMode === 'draw') {
     drawing.pts.push({ lat: e.latlng.lat, lon: e.latlng.lng });
     drawLayer.clearLayers();
-    L.polyline(drawing.pts.map((p) => [p.lat, p.lon]), { color: '#c2410c', weight: 3 }).addTo(drawLayer);
-    drawing.pts.forEach((p) => L.circleMarker([p.lat, p.lon], { radius: 5, color: '#c2410c', fillOpacity: 1 }).addTo(drawLayer));
+    L.polyline(drawing.pts.map((p) => [p.lat, p.lon]), { color: '#2f3a14', weight: 3 }).addTo(drawLayer);
+    drawing.pts.forEach((p) => L.circleMarker([p.lat, p.lon], { radius: 5, color: '#2f3a14', fillOpacity: 1 }).addTo(drawLayer));
   }
 });
 
@@ -201,8 +238,8 @@ $('undoCorner').onclick = () => {
   drawing.pts.pop();
   drawLayer.clearLayers();
   if (drawing.pts.length) {
-    L.polyline(drawing.pts.map((p) => [p.lat, p.lon]), { color: '#c2410c', weight: 3 }).addTo(drawLayer);
-    drawing.pts.forEach((p) => L.circleMarker([p.lat, p.lon], { radius: 5, color: '#c2410c', fillOpacity: 1 }).addTo(drawLayer));
+    L.polyline(drawing.pts.map((p) => [p.lat, p.lon]), { color: '#2f3a14', weight: 3 }).addTo(drawLayer);
+    drawing.pts.forEach((p) => L.circleMarker([p.lat, p.lon], { radius: 5, color: '#2f3a14', fillOpacity: 1 }).addTo(drawLayer));
   }
 };
 $('cancelDraw').onclick = cancelDraw;
@@ -300,6 +337,7 @@ $('findParks').onclick = async () => {
         setBoundary({ rings: c.rings, holes: c.holes, label: c.name });
         if (!$('name').value) $('name').value = c.name;
         box.innerHTML = '';
+        afterBoundary();
       };
       box.append(btn);
     }
@@ -322,7 +360,7 @@ function renderAll() {
   $('clearStart').classList.toggle('hidden', !S.start);
   if (S.start && S.points.length) {
     const seq = [S.start, ...S.points, ...(S.settings.endAtStart ? [S.start] : [])];
-    L.polyline(seq.map((p) => [p.lat, p.lon]), { color: '#c2410c', weight: 2, dashArray: '6 6', interactive: false }).addTo(courseLayer);
+    L.polyline(seq.map((p) => [p.lat, p.lon]), { color: '#1c2410', weight: 2.5, dashArray: '7 6', interactive: false }).addTo(courseLayer);
   }
   S.points.forEach((p, i) => {
     const m = L.marker([p.lat, p.lon], { icon: markerIcon('P' + (i + 1), S.warnings[p.id] ? 'bad' : ''), draggable: true, title: p.id }).addTo(courseLayer);
