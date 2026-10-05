@@ -56,7 +56,8 @@ const dot = (ll, color, text, r = 5) => L.circleMarker(ll, { radius: r, color: '
 
 /** Map revealing the true points (and, if given, check-ins and the track). */
 export function createRevealMap(el, course, { found = {}, checkins = [], track = [] } = {}) {
-  const map = L.map(el).setView([course.start.lat, course.start.lon], 14);
+  const map = L.map(el, { attributionControl: false }).setView([course.start.lat, course.start.lon], 14);
+  L.control.attribution({ prefix: false }).addTo(map);
   const bases = makeBases();
   bases['OpenTopoMap'].addTo(map);
   L.control.layers(bases, {}, { collapsed: true }).addTo(map);
