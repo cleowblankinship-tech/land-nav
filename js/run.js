@@ -101,13 +101,18 @@ function showPractice() {
       <div class="small muted" id="acc"></div></div>
     <div class="card" id="azCard">
       <h2>Azimuth Check</h2>
-      <div class="row">
-        <button id="azDir" class="small" type="button">To point</button>
-        <button id="azNorth" class="small" type="button">Magnetic</button>
+      <div class="grid2" style="grid-template-columns:1fr">
+        <button id="azLoc" class="olive" type="button">My location</button>
+        <button id="azDist" class="olive" type="button">Distance from each point</button>
+        <button id="azDirBtn" class="olive" type="button">Direction from each point</button>
       </div>
-      <button id="azGo" class="primary" style="width:100%;margin-top:10px">Azimuth Check</button>
       <div class="pbar hidden" id="azBar" style="margin-top:8px"><div></div></div>
       <div id="azOut" style="margin-top:10px"></div>
+      <div class="row hidden" id="azOpts" style="margin-top:8px">
+        <button id="azDir" class="small" type="button">From point</button>
+        <button id="azNorth" class="small" type="button">Magnetic</button>
+      </div>
+      <button id="azAgain" class="small hidden" type="button" style="margin-top:8px;width:100%">Read GPS again</button>
     </div>
     <label>Declination in degrees east, from your map
       <input id="decl" type="number" step="0.5" inputmode="decimal" value="${decl}"></label>
@@ -132,34 +137,48 @@ function showPractice() {
         <div class="st" style="font-size:1.2rem">${near ? 'IN RANGE' : Math.round(dist) + ' m'}${near ? `<br><span class="small">${Math.round(dist)} m</span>` : ''}</div></div>`;
     }).join('');
   };
-  // Azimuth Check: average a few seconds of GPS, then list distance and azimuth per point.
+  // Azimuth Check: average a few seconds of GPS, then answer one of three questions.
   let az = null; // {pos, at}
-  let azToPoint = true;
+  let azView = null; // 'loc' | 'dist' | 'dir'
+  let azToPoint = false; // direction FROM each point (to you) by default
   let azMagnetic = true;
   let azFixes = null;
   const fmtAz = (deg) => String(Math.round(deg) % 360).padStart(3, '0') + '°';
+  const line = (t) => `<div class="mono" style="font-size:1.5rem;font-weight:800;padding:6px 0;border-bottom:1px solid var(--line)">${t}</div>`;
   const drawAz = () => {
     const out = document.getElementById('azOut');
     document.getElementById('azDir').textContent = azToPoint ? 'To point' : 'From point';
     document.getElementById('azNorth').textContent = azMagnetic ? 'Magnetic' : 'True';
+    for (const [id, v] of [['azLoc', 'loc'], ['azDist', 'dist'], ['azDirBtn', 'dir']]) {
+      document.getElementById(id).classList.toggle('primary', azView === v);
+      document.getElementById(id).classList.toggle('olive', azView !== v);
+    }
+    document.getElementById('azOpts').classList.toggle('hidden', !(az && azView === 'dir'));
+    document.getElementById('azAgain').classList.toggle('hidden', !az);
     if (!az) return;
-    const d = parseFloat(document.getElementById('decl').value) || 0;
-    out.innerHTML = `<div class="small muted">${azToPoint ? 'From you to each point' : 'From each point to you'}, ${azMagnetic ? 'magnetic' : 'true'} azimuth. GPS ±${Math.round(az.pos.acc)} m.</div>` +
-      course.pts.map((p, i) => {
-        const dist = haversine(az.pos, p);
-        let b = azToPoint ? bearing(az.pos, p) : bearing(p, az.pos);
-        if (azMagnetic) b = (((b - d) % 360) + 360) % 360;
-        return `<div class="mono" style="font-size:1.5rem;font-weight:800;padding:6px 0;border-bottom:1px solid var(--line)">P${i + 1}&nbsp; ${Math.round(dist)} m&nbsp; ${fmtAz(b)}</div>`;
-      }).join('');
+    const when = new Date(az.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const note = `<div class="small muted">GPS ±${Math.round(az.pos.acc)} m, read at ${when}.</div>`;
+    if (azView === 'loc') {
+      out.innerHTML = `<div class="small muted">YOU ARE AT</div>${line(toMGRS(az.pos.lat, az.pos.lon, 4))}
+        <div class="small muted" style="margin-top:6px">${az.pos.lat.toFixed(5)}, ${az.pos.lon.toFixed(5)}</div>${note}`;
+    } else if (azView === 'dist') {
+      out.innerHTML = course.pts.map((p, i) => line(`P${i + 1}&nbsp; ${Math.round(haversine(az.pos, p))} m`)).join('') + note;
+    } else {
+      const d = parseFloat(document.getElementById('decl').value) || 0;
+      out.innerHTML = `<div class="small muted">${azToPoint ? 'From you to each point' : 'From each point to you'}, ${azMagnetic ? 'magnetic' : 'true'} azimuth.</div>` +
+        course.pts.map((p, i) => {
+          let b = azToPoint ? bearing(az.pos, p) : bearing(p, az.pos);
+          if (azMagnetic) b = (((b - d) % 360) + 360) % 360;
+          return line(`P${i + 1}&nbsp; ${fmtAz(b)}`);
+        }).join('') + note;
+    }
   };
-  document.getElementById('azDir').onclick = () => { azToPoint = !azToPoint; drawAz(); };
-  document.getElementById('azNorth').onclick = () => { azMagnetic = !azMagnetic; drawAz(); };
-  document.getElementById('azGo').onclick = async () => {
+  const readGps = async () => {
     if (azFixes) return;
-    const btn = document.getElementById('azGo');
     const bar = document.getElementById('azBar');
-    btn.disabled = true;
-    btn.textContent = 'Reading GPS…';
+    const btns = ['azLoc', 'azDist', 'azDirBtn', 'azAgain'].map((id) => document.getElementById(id));
+    btns.forEach((b) => { b.disabled = true; });
+    document.getElementById('azOut').innerHTML = '<div class="muted">Reading GPS…</div>';
     bar.classList.remove('hidden');
     azFixes = [];
     const add = (p) => azFixes?.push({ lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy });
@@ -179,15 +198,24 @@ function showPractice() {
     azFixes = null;
     bar.classList.add('hidden');
     bar.firstElementChild.style.width = '0';
-    btn.disabled = false;
-    btn.textContent = 'Azimuth Check';
+    btns.forEach((b) => { b.disabled = false; });
     if (!pos) {
       document.getElementById('azOut').innerHTML = '<div class="banner bad">No GPS fix. Try again in the open.</div>';
       return;
     }
-    az = { pos };
+    az = { pos, at: Date.now() };
     drawAz();
   };
+  const pick = (v) => async () => {
+    azView = v;
+    if (!az) await readGps(); else drawAz();
+  };
+  document.getElementById('azLoc').onclick = pick('loc');
+  document.getElementById('azDist').onclick = pick('dist');
+  document.getElementById('azDirBtn').onclick = pick('dir');
+  document.getElementById('azAgain').onclick = readGps;
+  document.getElementById('azDir').onclick = () => { azToPoint = !azToPoint; drawAz(); };
+  document.getElementById('azNorth').onclick = () => { azMagnetic = !azMagnetic; drawAz(); };
   document.getElementById('decl').addEventListener('change', drawAz);
   practiceWatch = navigator.geolocation.watchPosition(
     (p) => {
