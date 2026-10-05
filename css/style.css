@@ -44,7 +44,7 @@ button, .btn {
   color: var(--ink);
   font-weight: 700;
   cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center; gap: .4em;
+  display: inline-flex; align-items: center; justify-content: center; gap: .4em; text-align: center;
   text-decoration: none;
   touch-action: manipulation;
 }

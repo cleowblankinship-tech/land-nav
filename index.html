@@ -11,19 +11,18 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<div class="hero"><h1>Land Nav</h1><div class="muted">Map · protractor · compass. GPS only confirms.</div></div>
+<div class="hero"><h1>Land Nav</h1></div>
 <div class="wrap">
   <div class="bigbtns">
-    <a class="btn olive" href="run.html" id="navBtn">Navigator<small>Open a course link and run it</small></a>
-    <a class="btn" href="setup.html">Setup (course setter)<small>Build a course, lane card, and link</small></a>
-    <a class="btn" href="score.html">Score a GPX track<small>Backup scoring from Strava / Garmin</small></a>
+    <a class="btn olive" href="run.html" id="navBtn">Run a course</a>
+    <a class="btn" href="setup.html">Build a course</a>
+    <a class="btn" href="score.html">Score a GPX</a>
   </div>
   <div class="card">
-    <h2>Have a course code?</h2>
-    <label>Paste the link or code<input id="code" type="text" placeholder="https://…/run.html#…"></label>
-    <p><button id="go" class="primary" style="width:100%">Open course</button></p>
+    <label>Got a course link?<input id="code" type="text" placeholder="Paste it here"></label>
+    <p><button id="go" class="primary" style="width:100%">Open</button></p>
   </div>
-  <p class="muted small">Works offline once loaded. Add to Home Screen for the full-screen app.</p>
+  <p class="muted small">Add to Home Screen to use it offline.</p>
 </div>
 <script type="module">
 import { store } from './js/store.js';

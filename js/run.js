@@ -30,7 +30,7 @@ const active = () => run && run.startedAt && !run.endedAt;
 
 // ---------------------------------------------------------------- views ----
 function showEnterCode(msg = '') {
-  document.getElementById('topTitle').textContent = 'Navigator';
+  document.getElementById('topTitle').textContent = 'Run a course';
   app.innerHTML = `
     <div class="card"><h2>Open a course</h2>
       ${msg ? `<div class="banner bad">${esc(msg)}</div>` : ''}
