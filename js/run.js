@@ -99,6 +99,16 @@ function showPractice() {
     <div class="card"><div class="small muted">YOU ARE AT</div>
       <div class="mono" id="me" style="font-size:1.4rem;font-weight:800">Finding GPS…</div>
       <div class="small muted" id="acc"></div></div>
+    <div class="card" id="azCard">
+      <h2>Azimuth Check</h2>
+      <div class="row">
+        <button id="azDir" class="small" type="button">To point</button>
+        <button id="azNorth" class="small" type="button">Magnetic</button>
+      </div>
+      <button id="azGo" class="primary" style="width:100%;margin-top:10px">Azimuth Check</button>
+      <div class="pbar hidden" id="azBar" style="margin-top:8px"><div></div></div>
+      <div id="azOut" style="margin-top:10px"></div>
+    </div>
     <label>Declination in degrees east, from your map
       <input id="decl" type="number" step="0.5" inputmode="decimal" value="${decl}"></label>
     <div class="small muted">Magnetic bearing is true bearing minus declination.</div>
@@ -122,8 +132,68 @@ function showPractice() {
         <div class="st" style="font-size:1.2rem">${near ? 'IN RANGE' : Math.round(dist) + ' m'}${near ? `<br><span class="small">${Math.round(dist)} m</span>` : ''}</div></div>`;
     }).join('');
   };
+  // Azimuth Check: average a few seconds of GPS, then list distance and azimuth per point.
+  let az = null; // {pos, at}
+  let azToPoint = true;
+  let azMagnetic = true;
+  let azFixes = null;
+  const fmtAz = (deg) => String(Math.round(deg) % 360).padStart(3, '0') + '°';
+  const drawAz = () => {
+    const out = document.getElementById('azOut');
+    document.getElementById('azDir').textContent = azToPoint ? 'To point' : 'From point';
+    document.getElementById('azNorth').textContent = azMagnetic ? 'Magnetic' : 'True';
+    if (!az) return;
+    const d = parseFloat(document.getElementById('decl').value) || 0;
+    out.innerHTML = `<div class="small muted">${azToPoint ? 'From you to each point' : 'From each point to you'}, ${azMagnetic ? 'magnetic' : 'true'} azimuth. GPS ±${Math.round(az.pos.acc)} m.</div>` +
+      course.pts.map((p, i) => {
+        const dist = haversine(az.pos, p);
+        let b = azToPoint ? bearing(az.pos, p) : bearing(p, az.pos);
+        if (azMagnetic) b = (((b - d) % 360) + 360) % 360;
+        return `<div class="mono" style="font-size:1.5rem;font-weight:800;padding:6px 0;border-bottom:1px solid var(--line)">P${i + 1}&nbsp; ${Math.round(dist)} m&nbsp; ${fmtAz(b)}</div>`;
+      }).join('');
+  };
+  document.getElementById('azDir').onclick = () => { azToPoint = !azToPoint; drawAz(); };
+  document.getElementById('azNorth').onclick = () => { azMagnetic = !azMagnetic; drawAz(); };
+  document.getElementById('azGo').onclick = async () => {
+    if (azFixes) return;
+    const btn = document.getElementById('azGo');
+    const bar = document.getElementById('azBar');
+    btn.disabled = true;
+    btn.textContent = 'Reading GPS…';
+    bar.classList.remove('hidden');
+    azFixes = [];
+    const add = (p) => azFixes?.push({ lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy });
+    const poll = () => navigator.geolocation.getCurrentPosition(add, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+    poll();
+    const pollIv = setInterval(poll, 2000);
+    const t0 = Date.now();
+    await new Promise((resolve) => {
+      const iv = setInterval(() => {
+        const dt = Date.now() - t0;
+        bar.firstElementChild.style.width = Math.min(100, (dt / 6000) * 100) + '%';
+        if ((dt >= 6000 && azFixes.length >= 3) || dt >= 12000) { clearInterval(iv); resolve(); }
+      }, 200);
+    });
+    clearInterval(pollIv);
+    const pos = averageFixes(azFixes);
+    azFixes = null;
+    bar.classList.add('hidden');
+    bar.firstElementChild.style.width = '0';
+    btn.disabled = false;
+    btn.textContent = 'Azimuth Check';
+    if (!pos) {
+      document.getElementById('azOut').innerHTML = '<div class="banner bad">No GPS fix. Try again in the open.</div>';
+      return;
+    }
+    az = { pos };
+    drawAz();
+  };
+  document.getElementById('decl').addEventListener('change', drawAz);
   practiceWatch = navigator.geolocation.watchPosition(
-    (p) => { fix = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy }; },
+    (p) => {
+      fix = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy };
+      azFixes?.push({ lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy });
+    },
     (e) => { document.getElementById('me').textContent = e.code === 1 ? 'Location is blocked' : 'No GPS yet'; },
     { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 },
   );
