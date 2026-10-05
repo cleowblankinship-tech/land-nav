@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#4b5320">
-<title>Build a course — Land Nav</title>
+<title>Build a course</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -15,7 +15,7 @@
 <div class="topbar no-print"><a href="index.html">◂ Land Nav</a><span class="sp"></span><strong>Build a course</strong></div>
 <div class="setup-main">
   <div id="map" style="position:relative"><div id="hint" class="hint hidden"></div></div>
-  <div class="mapbar no-print"><button id="mapToggle" type="button">▲ ▼ Resize map</button></div>
+  <div class="mapbar no-print"><button id="mapToggle" type="button">Resize map</button></div>
   <div class="panel no-print">
 
     <div class="row" id="resetBar" style="margin-bottom:10px">
@@ -24,95 +24,90 @@
     </div>
 
     <details open>
-      <summary>1 · Area</summary>
+      <summary>1. Area</summary>
       <div class="body">
-        <div class="row"><input id="placeQ" type="search" placeholder="Jump to a place (e.g. Palmer Park)" style="flex:3"><button id="placeGo" class="small">Go</button></div>
+        <div class="row"><input id="placeQ" type="search" placeholder="Search a place" style="flex:3"><button id="placeGo" class="small">Go</button></div>
         <div id="placeRes" class="results-list"></div>
-        <div class="row">
-          <button id="findParks" class="olive">Find park / public-land boundaries in view</button>
-        </div>
+        <button id="findParks" class="olive">Find park boundaries</button>
         <div id="boundaryRes" class="results-list"></div>
         <div class="row">
-          <button id="drawBtn" class="small">Draw polygon</button>
-          <button id="viewBoxBtn" class="small">Use current view</button>
-          <button id="clearBoundary" class="small danger">Clear</button>
+          <button id="drawBtn" class="small">Draw area</button>
+          <button id="viewBoxBtn" class="small">Use map view</button>
+          <button id="clearBoundary" class="small danger">Clear area</button>
         </div>
         <div class="row hidden" id="drawTools">
-          <button id="undoCorner" class="small">Undo last corner</button>
-          <button id="cancelDraw" class="small danger">Cancel drawing</button>
+          <button id="undoCorner" class="small">Undo corner</button>
+          <button id="cancelDraw" class="small danger">Cancel</button>
         </div>
-        <div id="boundaryInfo" class="muted small">No boundary yet.</div>
+        <div id="boundaryInfo" class="muted small">No area yet.</div>
       </div>
     </details>
 
     <details open>
-      <summary>2 · Start point</summary>
+      <summary>2. Start</summary>
       <div class="body">
-        <div class="row"><button id="startBtn" class="olive">Tap map to set start</button></div>
-        <div id="startInfo" class="muted small">Not set (parking lot / trailhead).</div>
-        <button id="clearStart" class="small danger hidden">Clear start point</button>
+        <button id="startBtn" class="olive">Set start</button>
+        <div id="startInfo" class="muted small">Not set.</div>
+        <button id="clearStart" class="small danger hidden">Clear start</button>
       </div>
     </details>
 
     <details open>
-      <summary>3 · Course settings</summary>
+      <summary>3. Settings</summary>
       <div class="body">
-        <label>Course name<input id="name" type="text" placeholder="e.g. Palmer Park — Sat"></label>
+        <label>Course name<input id="name" type="text"></label>
         <div class="grid2">
           <label>Points<input id="n" type="number" min="1" max="12" inputmode="numeric"></label>
-          <label>Target distance (mi)<input id="miles" type="number" min="0.5" max="30" step="0.1" inputmode="decimal"></label>
-          <label>Min spacing (m)<input id="spacing" type="number" min="50" max="3000" step="50" inputmode="numeric"></label>
-          <label>Check-in radius (m)<input id="radius" type="number" min="10" max="100" step="5" inputmode="numeric"></label>
-          <label>Time limit (min)<input id="limit" type="number" min="15" max="1440" step="15" inputmode="numeric"></label>
+          <label>Miles<input id="miles" type="number" min="0.5" max="30" step="0.1" inputmode="decimal"></label>
+          <label>Spacing in meters<input id="spacing" type="number" min="50" max="3000" step="50" inputmode="numeric"></label>
+          <label>Radius in meters<input id="radius" type="number" min="10" max="100" step="5" inputmode="numeric"></label>
+          <label>Minutes allowed<input id="limit" type="number" min="15" max="1440" step="15" inputmode="numeric"></label>
           <label>Points to pass<input id="need" type="number" min="1" max="12" inputmode="numeric"></label>
         </div>
-        <label class="check"><input id="endAtStart" type="checkbox"> Course ends back at start</label>
+        <label class="check"><input id="endAtStart" type="checkbox"> End at start</label>
         <details>
-          <summary>Walkability filters</summary>
+          <summary>Terrain filters</summary>
           <div class="body">
-            <label class="check"><input id="useTrails" type="checkbox"> Keep points within reach of a trail/road</label>
-            <label class="check"><input id="useSlope" type="checkbox"> Avoid steep ground (needs elevation data)</label>
+            <label class="check"><input id="useSlope" type="checkbox"> Avoid steep ground</label>
+            <label class="check"><input id="useTrails" type="checkbox"> Stay near trails</label>
             <div class="grid2">
-              <label>Max slope (°)<input id="maxSlope" type="number" min="5" max="60" step="1" inputmode="numeric"></label>
-              <label>Max from trail (m)<input id="trailMax" type="number" min="50" max="2000" step="25" inputmode="numeric"></label>
-              <label>Min from trail (m) <span class="muted">0 = on-trail OK</span><input id="offTrail" type="number" min="0" max="500" step="5" inputmode="numeric"></label>
-              <label>Edge buffer (m)<input id="edge" type="number" min="0" max="300" step="10" inputmode="numeric"></label>
+              <label>Max slope in degrees<input id="maxSlope" type="number" min="5" max="60" step="1" inputmode="numeric"></label>
+              <label>Max meters from trail<input id="trailMax" type="number" min="50" max="2000" step="25" inputmode="numeric"></label>
+              <label>Min meters from trail<input id="offTrail" type="number" min="0" max="500" step="5" inputmode="numeric"></label>
+              <label>Edge buffer in meters<input id="edge" type="number" min="0" max="300" step="10" inputmode="numeric"></label>
             </div>
-            <div class="small muted">Always avoided when OSM data is loaded: water, wetlands, buildings, developed/private land, cliffs, rock, fences, roads, railways.</div>
+            <div class="small muted">Water, buildings, cliffs, roads and private land are always avoided.</div>
           </div>
         </details>
       </div>
     </details>
 
     <details open>
-      <summary>4 · Generate</summary>
+      <summary>4. Generate</summary>
       <div class="body">
         <button id="genBtn" class="primary">Generate course</button>
         <div id="status" class="status small"></div>
         <div class="row small">
-          <label class="check"><input id="showExcl" type="checkbox"> Show excluded areas</label>
+          <label class="check"><input id="showExcl" type="checkbox"> Show avoided areas</label>
           <label class="check"><input id="showTrails" type="checkbox"> Show trails</label>
         </div>
         <div id="total" class="banner hidden"></div>
         <div id="pts" class="results-list"></div>
-        <div class="row">
-          <button id="addPt" class="small">+ Add point</button>
-        </div>
+        <button id="addPt" class="small">Add point</button>
       </div>
     </details>
 
     <details open>
-      <summary>5 · Hand it over</summary>
+      <summary>5. Share</summary>
       <div class="body">
-        <button id="cardBtn" class="olive">Open lane card (printable)</button>
+        <button id="cardBtn" class="olive">Lane card</button>
         <div class="row">
-          <button id="copyLink">Copy course link</button>
-          <button id="shareLink">Share…</button>
+          <button id="copyLink">Copy link</button>
+          <button id="shareLink">Share</button>
         </div>
-        <input id="linkOut" type="text" readonly placeholder="Course link appears after you generate a course">
-        <hr style="width:100%;border:0;border-top:1px solid var(--line)">
-        <div class="small muted">Printable topo: pick a topo basemap, turn on the MGRS grid (layers button on the map), zoom to the area, then:</div>
-        <button id="printMap">Print map — grid, no course points</button>
+        <input id="linkOut" type="text" readonly placeholder="Link appears after you generate">
+        <button id="printMap">Print map with grid</button>
+        <div class="small muted">Prints with no course points. Pick a topo map and turn on the grid in the layers menu first.</div>
       </div>
     </details>
   </div>

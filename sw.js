@@ -1,4 +1,4 @@
-// Service worker: precache the app shell so the Navigator works with no signal,
+// Service worker: precache the app shell so a run works with no signal,
 // and opportunistically cache map tiles you have already viewed.
 // __BUILD__ is replaced with the commit SHA by the deploy workflow so every
 // deploy gets a fresh cache.
@@ -19,7 +19,11 @@ const SHELL = [
 const TILE_HOSTS = /(^|\.)(opentopomap\.org|tile\.openstreetmap\.org|nationalmap\.gov|elevation-tiles-prod\.s3\.amazonaws\.com)$/;
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(SHELL_CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(SHELL_CACHE)
+      .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener('activate', (e) => {
@@ -57,18 +61,18 @@ self.addEventListener('fetch', (e) => {
   }
 
   if (url.origin === location.origin) {
-    // cache-first for the app shell (query/hash ignored so course links resolve), refresh in background
-    e.respondWith(
-      caches.match(req, { ignoreSearch: true }).then((hit) => {
-        const net = fetch(req)
-          .then((res) => {
-            if (res.ok) caches.open(SHELL_CACHE).then((c) => c.put(req, res.clone()));
-            return res;
-          })
-          .catch(() => hit);
-        return hit || net;
-      }),
-    );
+    // Network first, so a deploy never leaves the page running a mix of old and new files.
+    // The cache is only the fallback when offline or the signal is too slow (3 s).
+    e.respondWith((async () => {
+      const cache = await caches.open(SHELL_CACHE);
+      const net = fetch(req.url, { cache: 'no-cache' }).then((res) => {
+        if (res.ok) cache.put(req, res.clone());
+        return res;
+      });
+      const hit = await caches.match(req, { ignoreSearch: true });
+      if (!hit) return net;
+      return Promise.race([net.catch(() => hit), new Promise((r) => setTimeout(() => r(hit), 3000))]);
+    })());
   }
   // everything else (Overpass, Nominatim) goes straight to the network
 });

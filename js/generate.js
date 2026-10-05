@@ -214,7 +214,7 @@ export function generateCourse({
   pool, proj, start, n = 5, targetM, minSpacing = 400, endAtStart = true,
   rng = Math.random, tolerance = 0.04, tries = 4000, samplePerStep = 120,
 }) {
-  if (!pool.length) return { points: [], total: 0, error: Infinity, ok: false, tries: 0, reason: 'No valid ground found in the boundary.' };
+  if (!pool.length) return { points: [], total: 0, error: Infinity, ok: false, tries: 0, reason: 'No valid ground found in the area.' };
   const origin = { x: 0, y: 0 };
   const legs = n + (endAtStart ? 1 : 0);
   let best = null;
@@ -248,7 +248,7 @@ export function generateCourse({
     if (!best || error < best.error) best = { points: ll, total, error };
     if (error <= tolerance) break;
   }
-  if (!best) return { points: [], total: 0, error: Infinity, ok: false, tries: t, reason: 'Could not fit that many points at that spacing. Lower the spacing or point count, or use a bigger boundary.' };
+  if (!best) return { points: [], total: 0, error: Infinity, ok: false, tries: t, reason: 'Could not fit that many points at that spacing. Lower the spacing or point count, or use a bigger area.' };
   const points = best.points.map((p) => snapToMGRS(p));
   const total = courseLength(start, points, endAtStart);
   return { points, total, error: Math.abs(total - targetM) / targetM, ok: best.error <= 0.15, tries: t };

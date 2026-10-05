@@ -17,7 +17,7 @@ try {
     <h1><span>Land Nav Lane Card</span><small>${esc(c.name)} · ${esc(date)}</small></h1>
     <table>
       <tr><th style="width:5.5em">Point</th><th style="width:5em">ID</th><th>MGRS (8-digit)</th><th style="width:7em">Found</th></tr>
-      <tr class="start"><td><b>START</b></td><td>—</td><td class="m">${esc(mgrs8(c.start))}</td><td></td></tr>
+      <tr class="start"><td><b>START</b></td><td></td><td class="m">${esc(mgrs8(c.start))}</td><td></td></tr>
       ${c.pts.map((p, i) => `<tr><td><b>P${i + 1}</b></td><td class="mono"><b>${esc(p.id)}</b></td><td class="m">${esc(mgrs8(p))}</td><td style="white-space:nowrap">☐ ___:___</td></tr>`).join('')}
     </table>
     <div class="meta">
@@ -31,7 +31,7 @@ try {
       <p>Notes:</p><div class="blank"></div><div class="blank"></div>
     </div>
   </div>`;
-  document.title = `Lane card — ${c.name}`;
+  document.title = `Lane card: ${c.name}`;
 } catch (e) {
   root.innerHTML = `<div class="banner bad">${esc(e.message)} Open this page from the course link made in Setup mode.</div>`;
 }
