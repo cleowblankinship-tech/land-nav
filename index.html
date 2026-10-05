@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#3f4a1f">
+<title>Land Nav</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="hero"><h1>Land Nav</h1><div class="muted">Map · protractor · compass. GPS only confirms.</div></div>
+<div class="wrap">
+  <div id="resume" class="banner warn hidden"></div>
+  <div class="bigbtns">
+    <a class="btn olive" href="run.html" id="navBtn">Navigator<small>Open a course link and run it</small></a>
+    <a class="btn" href="setup.html">Setup (course setter)<small>Build a course, lane card, and link</small></a>
+    <a class="btn" href="score.html">Score a GPX track<small>Backup scoring from Strava / Garmin</small></a>
+  </div>
+  <div class="card">
+    <h2>Have a course code?</h2>
+    <label>Paste the link or code<input id="code" type="text" placeholder="https://…/run.html#…"></label>
+    <p><button id="go" class="primary" style="width:100%">Open course</button></p>
+  </div>
+  <p class="muted small">Works offline once loaded. Add to Home Screen for the full-screen app.</p>
+</div>
+<script type="module">
+import { store } from './js/store.js';
+import { decodeCourse } from './js/course.js';
+document.getElementById('go').onclick = () => {
+  const v = document.getElementById('code').value.trim();
+  if (!v) return;
+  try { const c = decodeCourse(v); location.href = 'run.html#' + c.code; }
+  catch (e) { alert(e.message); }
+};
+const run = store.get('ln.active');
+if (run && !run.endedAt) {
+  const el = document.getElementById('resume');
+  el.classList.remove('hidden');
+  el.innerHTML = '<b>A run is in progress.</b> <a href="run.html">Resume it</a>';
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
