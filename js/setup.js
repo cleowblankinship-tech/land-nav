@@ -4,6 +4,7 @@ import { findBoundaries, fetchConstraints, searchPlace, bboxOfLL } from './osm.j
 import { DEFAULTS, makeCourse, encodeCourse, makePointIds, mgrs8, fmtLatLon } from './course.js';
 import { createGridLayer } from './grid.js';
 import { store } from './store.js';
+import { makeBases } from './basemaps.js';
 
 const $ = (id) => document.getElementById(id);
 const DRAFT_KEY = 'ln.setup.draft.v1';
@@ -65,12 +66,7 @@ function loadDraft() {
 
 // -------------------------------------------------------------------- map ---
 const map = L.map('map', { zoomControl: true }).setView([38.8685, -104.7518], 14);
-const bases = {
-  'OpenTopoMap': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '© OpenStreetMap, SRTM | © OpenTopoMap (CC-BY-SA)' }),
-  'USGS Topo': L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'USGS The National Map' }),
-  'OpenStreetMap': L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }),
-  'USGS Imagery': L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'USGS The National Map' }),
-};
+const bases = makeBases();
 bases['OpenTopoMap'].addTo(map);
 const gridLayer = createGridLayer(map);
 const boundaryLayer = L.layerGroup().addTo(map);
@@ -355,7 +351,6 @@ async function loadConstraints() {
   try {
     S.constraints = await fetchConstraints(bb);
     S.constraintsKey = key;
-    const c = S.constraints.counts;
     status(`Map data loaded: ${S.constraints.trails.length} trail/road segments, ${S.constraints.avoidAreas.length} excluded areas.`, 'ok');
     return true;
   } catch (e) {

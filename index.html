@@ -35,7 +35,7 @@ document.getElementById('go').onclick = () => {
   try { const c = decodeCourse(v); location.href = 'run.html#' + c.code; }
   catch (e) { alert(e.message); }
 };
-const run = store.get('ln.active');
+const run = store.get('ln.run');
 if (run && !run.endedAt) {
   const el = document.getElementById('resume');
   el.classList.remove('hidden');

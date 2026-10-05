@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#3f4a1f">
+<title>Score a GPX — Land Nav</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar"><a href="index.html">◂ Land Nav</a><span class="sp"></span><strong>Score a GPX</strong></div>
+<main class="wrap">
+  <div class="card">
+    <h2>1 · Course</h2>
+    <label>Course link or code<input id="code" type="text" placeholder="https://…/run.html#…"></label>
+    <p><button id="load" class="olive" style="width:100%">Load course</button></p>
+    <div id="msg"></div>
+  </div>
+  <div id="stage" class="hidden">
+    <div id="scoreBox"></div>
+    <h2>Map</h2>
+    <div id="resmap"></div>
+  </div>
+</main>
+<script src="vendor/leaflet.js"></script>
+<script type="module" src="js/score.js"></script>
+</body>
+</html>
