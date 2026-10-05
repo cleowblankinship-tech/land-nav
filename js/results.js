@@ -42,7 +42,7 @@ export function computeResults(course, run) {
 export function resultsText(course, run) {
   const r = computeResults(course, run);
   const lines = [
-    `${course.name} — ${r.pass ? 'PASS' : 'FAIL'} (${r.valid} of ${course.pts.length} found within time; need ${course.need})`,
+    `${course.name}: ${r.pass ? 'PASS' : 'FAIL'}. ${r.valid} of ${course.pts.length} found within time, need ${course.need}.`,
     `Total time ${fmtDuration(r.totalSec)} of ${fmtDuration(r.limitSec)} · missed check-ins ${r.misses}`,
   ];
   for (const x of r.rows) {
@@ -110,24 +110,24 @@ function download(name, text, type = 'application/gpx+xml') {
 export function renderResults(root, course, run, track, { onNew } = {}) {
   const r = computeResults(course, run);
   root.innerHTML = `
-    <div class="result ${r.pass ? 'found' : 'bad'}">${r.pass ? 'PASS' : 'FAIL'} — ${r.valid} of ${course.pts.length} found within time<div class="small" style="font-weight:600">Standard: ${course.need} of ${course.pts.length} within ${fmtDuration(r.limitSec)}</div></div>
+    <div class="result ${r.pass ? 'found' : 'bad'}">${r.pass ? 'PASS' : 'FAIL'}: ${r.valid} of ${course.pts.length} found within time<div class="small" style="font-weight:600">Standard: ${course.need} of ${course.pts.length} within ${fmtDuration(r.limitSec)}</div></div>
     <div class="card stat3">
       <div><div class="v">${r.found}/${course.pts.length}</div><div class="k">Found</div></div>
       <div><div class="v ${r.totalSec > r.limitSec ? 'fail' : ''}">${fmtDuration(r.totalSec)}</div><div class="k">Total time</div></div>
       <div><div class="v">${r.misses}</div><div class="k">Misses</div></div>
     </div>
-    ${r.inconclusive ? `<div class="small muted">${r.inconclusive} check-in(s) were inconclusive because GPS accuracy was worse than the radius (not counted as misses).</div>` : ''}
+    ${r.inconclusive ? `<div class="small muted">${r.inconclusive} check ins had weak GPS and were not counted as misses.</div>` : ''}
     <div class="card"><table class="tbl">
       <tr><th>Pt</th><th>ID</th><th>Result</th><th>Time</th><th>Split</th></tr>
       ${r.rows.map((x) => `<tr><td><b>P${x.i + 1}</b></td><td class="mono">${esc(x.p.id)}</td>
         <td class="${x.f ? (x.late ? 'fail' : 'pass') : 'fail'}">${x.f ? (x.late ? 'Late' : 'Found') : 'Not found'}</td>
-        <td class="mono">${x.f ? fmtDuration(x.elapsed) : '—'}</td><td class="mono">${x.f ? fmtDuration(x.split) : '—'}</td></tr>`).join('')}
+        <td class="mono">${x.f ? fmtDuration(x.elapsed) : ''}</td><td class="mono">${x.f ? fmtDuration(x.split) : ''}</td></tr>`).join('')}
     </table></div>
     <h2>Reveal map</h2>
     <div id="resmap"></div>
-    <div class="small muted" style="margin:6px 0">Circles = check-in radius. Green dots = found, grey = missed, orange = inconclusive GPS. Blue line = your recorded track.</div>
+    <div class="small muted" style="margin:6px 0">Circles show the check in radius. Green dots are finds, grey are misses, orange are weak GPS. The blue line is your track.</div>
     <div class="row">
-      <button id="expGpx">Export track (GPX)</button>
+      <button id="expGpx">Save track</button>
       <button id="copyRes">Copy results</button>
     </div>
     <div id="scoreBox"></div>
@@ -150,8 +150,8 @@ export function renderResults(root, course, run, track, { onNew } = {}) {
 export function renderGpxScoring(root, course, { rev = null, startMs = null } = {}) {
   root.innerHTML = `
     <div class="card">
-      <h2>Backup scoring from a GPX file</h2>
-      <p class="small muted">Use this if the phone's GPS was unreliable. Upload the track from Strava, Garmin, Coros, etc.</p>
+      <h2>Score a GPX file</h2>
+      <p class="small muted">Use this if the phone GPS was unreliable. Upload a track from Strava or a watch.</p>
       <input id="gpxFile" type="file" accept=".gpx,application/gpx+xml,text/xml,application/xml">
       <div id="gpxOut"></div>
     </div>`;
@@ -171,12 +171,12 @@ export function renderGpxScoring(root, course, { rev = null, startMs = null } = 
       const hits = res.filter((x) => x.hit);
       const valid = hits.filter((x) => start == null || x.t == null || x.t - start <= limitMs).length;
       out.innerHTML = `
-        <div class="result ${valid >= course.need ? 'found' : 'bad'}" style="font-size:1.1rem">${valid >= course.need ? 'PASS' : 'FAIL'} — track passed within ${course.radius} m of ${hits.length} of ${course.pts.length} points${hits.length !== valid ? ` (${valid} within the time limit)` : ''}</div>
+        <div class="result ${valid >= course.need ? 'found' : 'bad'}" style="font-size:1.1rem">${valid >= course.need ? 'PASS' : 'FAIL'}: track passed within ${course.radius} m of ${hits.length} of ${course.pts.length} points${hits.length !== valid ? `, ${valid} within the time limit` : ''}</div>
         <table class="tbl"><tr><th>Pt</th><th>ID</th><th>Passed?</th><th>Closest</th><th>Time</th></tr>
         ${res.map((x, i) => `<tr><td><b>P${i + 1}</b></td><td class="mono">${esc(x.id)}</td><td class="${x.hit ? 'pass' : 'fail'}">${x.hit ? 'Yes' : 'No'}</td>
           <td class="mono">${Math.round(x.minDist)} m</td>
-          <td class="mono">${x.hit && x.t != null ? `${clock(x.t)}${start != null ? ` (${fmtDuration((x.t - start) / 1000)})` : ''}` : '—'}</td></tr>`).join('')}</table>
-        <p class="small muted">${g.points.length} track points${timed ? '' : ' (no timestamps in file, so no times shown)'}. Elapsed time counts from ${sameDay ? 'the run start' : 'the first track point'}.</p>`;
+          <td class="mono">${x.hit && x.t != null ? `${clock(x.t)}${start != null ? `, ${fmtDuration((x.t - start) / 1000)}` : ''}` : ''}</td></tr>`).join('')}</table>
+        <p class="small muted">${g.points.length} track points${timed ? '' : ', no timestamps so no times shown'}. Elapsed time counts from ${sameDay ? 'the run start' : 'the first track point'}.</p>`;
       rev?.setTrack(g.points, '#7a1fa2');
     } catch (err) {
       out.innerHTML = `<div class="banner bad">${esc(err.message)}</div>`;

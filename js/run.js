@@ -34,8 +34,8 @@ function showEnterCode(msg = '') {
   app.innerHTML = `
     <div class="card"><h2>Open a course</h2>
       ${msg ? `<div class="banner bad">${esc(msg)}</div>` : ''}
-      <p class="muted">Open the course link you were sent, or paste it (or the code) here.</p>
-      <label>Course link or code<input id="code" type="text" placeholder="https://…/run.html#…"></label>
+      <p class="muted">Open your course link, or paste it here.</p>
+      <label>Course link<input id="code" type="text" placeholder="https://…/run.html#…"></label>
       <p><button id="go" class="primary" style="width:100%">Open course</button></p></div>`;
   document.getElementById('go').onclick = () => {
     try {
@@ -58,12 +58,12 @@ function showPlan() {
     <div class="card">
       <div class="small muted">START POINT</div>
       <div class="mg mono" style="font-size:1.4rem;font-weight:800">${mgrs8(course.start)}</div>
-      <div class="small muted" style="margin-top:6px">${course.pts.length} points · ${limitText(course.limitMin)} · check-in radius ${course.radius} m · pass = ${course.need} of ${course.pts.length}</div>
+      <div class="small muted" style="margin-top:6px">${course.pts.length} points · ${limitText(course.limitMin)} · check-in radius ${course.radius} m · pass with ${course.need} of ${course.pts.length}</div>
     </div>
     <div class="plist">${course.pts.map((p, i) => `
       <div class="prow"><div class="lbl">P${i + 1}</div>
         <div><div class="mg">${mgrs8(p)}</div><div class="pid">ID ${esc(p.id)}</div></div><div></div></div>`).join('')}</div>
-    <div class="banner">Plot your points first. The clock does <b>not</b> start until you press the button. The phone will keep the screen on and record a GPS track — no map or position is shown while you run.</div>
+    <div class="banner">Plot your points first. The clock starts when you press the button. The screen stays on and a GPS track is recorded. No map is shown while you run.</div>
     <button id="start" class="primary" style="width:100%;min-height:84px;font-size:1.4rem">START CLOCK</button>
     <div id="startMsg"></div>`;
   document.getElementById('start').onclick = startRun;
@@ -84,7 +84,7 @@ function startRun() {
       if (err.code === 1) {
         btn.disabled = false;
         btn.textContent = 'START CLOCK';
-        msg.innerHTML = '<div class="banner bad"><b>Location permission is blocked.</b> Allow location for this site in your browser/phone settings, then try again. (Check-ins need it.)</div>';
+        msg.innerHTML = '<div class="banner bad"><b>Location is blocked.</b> Allow location for this site in your phone settings, then try again.</div>';
       } else begin(); // timeout / no fix yet: start anyway, it will come
     },
     { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
@@ -150,10 +150,10 @@ function tick() {
   if (!clk) return;
   clk.textContent = remaining >= 0 ? fmtDuration(remaining) : '+' + fmtDuration(-remaining);
   clk.classList.toggle('over', remaining < 0);
-  document.getElementById('clkLbl').textContent = remaining >= 0 ? 'Time remaining' : 'OVER TIME — finds no longer count';
+  document.getElementById('clkLbl').textContent = remaining >= 0 ? 'Time remaining' : 'Over time. New finds will not count.';
   document.getElementById('elapsed').textContent = `Elapsed ${fmtDuration(elapsed)}`;
   const foot = document.getElementById('foot');
-  if (foot) foot.textContent = `Screen lock: ${wakeLock ? 'prevented' : 'not prevented — keep the screen on'} · Track: ${track.length} points recorded`;
+  if (foot) foot.textContent = `Screen lock ${wakeLock ? 'on' : 'off, keep the screen on'}. Track points: ${track.length}`;
 }
 
 // ------------------------------------------------------------ check-in ----
@@ -245,10 +245,10 @@ async function doCheckin() {
     beep(true);
   } else if (ev.status === 'already') {
     const idx = course.pts.findIndex((p) => p.id === ev.pt.id) + 1;
-    out.innerHTML = `<div class="result none">You already found P${idx} (${esc(ev.pt.id)}).<div class="small" style="font-weight:600">${info}</div></div>`;
+    out.innerHTML = `<div class="result none">You already found P${idx}, ${esc(ev.pt.id)}.<div class="small" style="font-weight:600">${info}</div></div>`;
     navigator.vibrate?.(80);
   } else if (ev.status === 'poor') {
-    out.innerHTML = `<div class="result none">No point here — but GPS is weak<div class="small" style="font-weight:600">${info}</div>${poorNote}<div class="small" style="font-weight:600">Not counted as a miss. Move to more open sky and check in again.</div></div>`;
+    out.innerHTML = `<div class="result none">No point here, but GPS is weak<div class="small" style="font-weight:600">${info}</div>${poorNote}<div class="small" style="font-weight:600">Not counted as a miss. Move to open sky and try again.</div></div>`;
     navigator.vibrate?.(200);
     beep(false);
   } else {

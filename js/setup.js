@@ -7,7 +7,13 @@ import { store } from './store.js';
 import { makeBases } from './basemaps.js';
 import { Dem } from './dem.js';
 
-const $ = (id) => document.getElementById(id);
+// If an element is missing (for example a stale cached page), keep going
+// instead of letting one null take every button down with it.
+const stub = (id) => {
+  console.warn('Missing element #' + id);
+  return { style: {}, classList: { toggle() {}, add() {}, remove() {} }, addEventListener() {}, select() {}, value: '', checked: false, innerHTML: '', textContent: '' };
+};
+const $ = (id) => document.getElementById(id) ?? stub(id);
 const DRAFT_KEY = 'ln.setup.draft.v1';
 
 function defaultSettings() {
@@ -151,7 +157,7 @@ function renderBoundary(fit) {
   boundaryLayer.clearLayers();
   const info = $('boundaryInfo');
   if (!S.boundary) {
-    info.textContent = 'No boundary yet.';
+    info.textContent = 'No area yet.';
     return;
   }
   const style = { color: '#1f6b2e', weight: 3, fillColor: '#3f4a1f', fillOpacity: 0.06, interactive: false };
@@ -161,7 +167,7 @@ function renderBoundary(fit) {
   const proj = makeProjection({ lat: (bb[0] + bb[2]) / 2, lon: (bb[1] + bb[3]) / 2 });
   const w = Math.abs(proj.toXY(bb[0], bb[3])[0] - proj.toXY(bb[0], bb[1])[0]);
   const h = Math.abs(proj.toXY(bb[2], bb[1])[1] - proj.toXY(bb[0], bb[1])[1]);
-  info.textContent = `${S.boundary.label || 'Custom boundary'} — about ${(w / 1000).toFixed(1)} × ${(h / 1000).toFixed(1)} km`;
+  info.textContent = `${S.boundary.label || 'Custom area'}: about ${(w / 1000).toFixed(1)} by ${(h / 1000).toFixed(1)} km`;
   if (fit) map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], { padding: [20, 20] });
 }
 
@@ -170,12 +176,13 @@ let tapMode = null; // 'start' | 'draw'
 function setMode(mode) {
   tapMode = mode;
   $('startBtn').classList.toggle('on', mode === 'start');
+  $('startBtn').textContent = mode === 'start' ? 'Tap the map' : 'Set start';
   $('drawBtn').classList.toggle('on', mode === 'draw');
-  $('drawBtn').textContent = mode === 'draw' ? 'Finish polygon' : 'Draw polygon';
+  $('drawBtn').textContent = mode === 'draw' ? 'Finish area' : 'Draw area';
   map.getContainer().style.cursor = mode ? 'crosshair' : '';
   $('drawTools').classList.toggle('hidden', mode !== 'draw');
   if (mode) { mapPinned = false; setMapState('full'); } else if (mapState === 'full' && !mapPinned) setMapState('normal');
-  hint(mode === 'start' ? 'Tap the map to place the start point' : mode === 'draw' ? 'Tap to add corners, then “Finish polygon”' : '');
+  hint(mode === 'start' ? 'Tap the map to set the start' : mode === 'draw' ? 'Tap to add corners, then tap Finish' : '');
 }
 // Once a boundary exists, go straight to "tap to place the start" (if none yet).
 function afterBoundary() {
@@ -185,7 +192,7 @@ function afterBoundary() {
 }
 function finishDraw() {
   if (drawing && drawing.pts.length >= 3) {
-    setBoundary({ rings: [drawing.pts.slice()], holes: [], label: 'Hand-drawn boundary' }, { fit: false });
+    setBoundary({ rings: [drawing.pts.slice()], holes: [], label: 'Drawn area' }, { fit: false });
     afterBoundary();
     drawLayer.clearLayers();
     drawing = null;
@@ -208,7 +215,7 @@ $('clearBoundary').onclick = () => { drawLayer.clearLayers(); drawing = null; se
 $('viewBoxBtn').onclick = () => {
   const b = map.getBounds().pad(-0.1);
   const ring = [b.getSouthWest(), b.getSouthEast(), b.getNorthEast(), b.getNorthWest()].map((p) => ({ lat: p.lat, lon: p.lng }));
-  setBoundary({ rings: [ring], holes: [], label: 'Map-view box' }, { fit: false });
+  setBoundary({ rings: [ring], holes: [], label: 'Map view' }, { fit: false });
   afterBoundary();
 };
 
@@ -244,7 +251,7 @@ $('undoCorner').onclick = () => {
 };
 $('cancelDraw').onclick = cancelDraw;
 
-function clearPoints(msg = 'Points cleared — boundary, start and settings kept.') {
+function clearPoints(msg = 'Points cleared.') {
   S.points = [];
   S.warnings = {};
   renderAll();
@@ -267,7 +274,7 @@ $('clearStart').onclick = () => {
   status('Start point and points cleared.', 'ok');
 };
 $('startOver').onclick = () => {
-  if ((S.boundary || S.start || S.points.length) && !confirm('Start over? This clears the boundary, start point and points, and resets all settings.')) return;
+  if ((S.boundary || S.start || S.points.length) && !confirm('Start over? This clears the area, start, points and settings.')) return;
   cancelDraw();
   store.del(DRAFT_KEY);
   Object.assign(S, {
@@ -282,7 +289,7 @@ $('startOver').onclick = () => {
   $('showTrails').checked = false;
   renderAll();
   updateLink();
-  status('Cleared. Pick a new area to begin.', 'ok');
+  status('Cleared.', 'ok');
 };
 
 // place search
@@ -316,7 +323,7 @@ $('placeQ').addEventListener('keydown', (e) => e.key === 'Enter' && $('placeGo')
 // boundaries from OSM
 $('findParks').onclick = async () => {
   const box = $('boundaryRes');
-  box.textContent = 'Asking OpenStreetMap…';
+  box.textContent = 'Searching…';
   const name = $('placeQ').value.trim();
   const b = map.getBounds();
   try {
@@ -332,7 +339,7 @@ $('findParks').onclick = async () => {
       btn.className = 'small';
       btn.style.justifyContent = 'flex-start';
       btn.style.textAlign = 'left';
-      btn.textContent = `${c.name} (${c.kind}${c.operator ? ', ' + c.operator : ''})`;
+      btn.textContent = c.name;
       btn.onclick = () => {
         setBoundary({ rings: c.rings, holes: c.holes, label: c.name });
         if (!$('name').value) $('name').value = c.name;
@@ -356,7 +363,7 @@ function renderAll() {
   if (S.start) {
     L.marker([S.start.lat, S.start.lon], { icon: markerIcon('S', 'start'), interactive: false }).addTo(courseLayer);
     $('startInfo').innerHTML = `<span class="coord">${mgrs8(S.start)}</span> · ${fmtLatLon(S.start)}`;
-  } else $('startInfo').textContent = 'Not set (parking lot / trailhead).';
+  } else $('startInfo').textContent = 'Not set.';
   $('clearStart').classList.toggle('hidden', !S.start);
   if (S.start && S.points.length) {
     const seq = [S.start, ...S.points, ...(S.settings.endAtStart ? [S.start] : [])];
@@ -391,8 +398,8 @@ function renderTotal() {
   const diff = ((total - target) / target) * 100;
   el.classList.remove('hidden', 'warn', 'ok');
   el.classList.add(Math.abs(diff) <= 10 ? 'ok' : 'warn');
-  el.innerHTML = `<b>Straight-line: ${mToMiles(total).toFixed(2)} mi</b> (${(total / 1000).toFixed(2)} km) · target ${S.settings.miles} mi (${diff >= 0 ? '+' : ''}${diff.toFixed(0)}%)<br>
-    <span class="small">Real walking is usually 1.2–1.5× straight-line ≈ ${(mToMiles(total) * 1.3).toFixed(1)} mi.</span>`;
+  el.innerHTML = `<b>${mToMiles(total).toFixed(2)} miles in a straight line</b><br>
+    Target ${S.settings.miles} miles, ${diff >= 0 ? '+' : ''}${diff.toFixed(0)}%. Walking will be about ${(mToMiles(total) * 1.3).toFixed(1)} miles.`;
 }
 
 function renderPointList() {
@@ -418,7 +425,7 @@ function terrainText(p) {
   const el = S.dem.elevation(p.lat, p.lon);
   const sl = S.dem.slope(p.lat, p.lon);
   if (Number.isNaN(el)) return '';
-  return `<br>${Math.round(el * 3.28084).toLocaleString()} ft${sl != null ? ` · slope ${sl.toFixed(0)}°` : ''}`;
+  return `<br>${Math.round(el * 3.28084).toLocaleString()} ft${sl != null ? `, slope ${sl.toFixed(0)}°` : ''}`;
 }
 
 function validatePoints() {
@@ -428,8 +435,8 @@ function validatePoints() {
     const why = [];
     if (S.built) {
       const r = S.built.check(p.lat, p.lon);
-      if (r) why.push(r === 'steep ground' ? 'steep ground' : r === 'outside' ? 'outside the boundary' : r === 'edge' ? 'too close to the boundary edge' : `on/near excluded ground (${r})`);
-    } else if (!boundaryContains(p.lat, p.lon)) why.push('outside the boundary');
+      if (r) why.push(r === 'steep ground' ? 'steep ground' : r === 'outside' ? 'outside the area' : r === 'edge' ? 'too close to the edge' : `too close to ${r}`);
+    } else if (!boundaryContains(p.lat, p.lon)) why.push('outside the area');
     if (S.start && haversine(p, S.start) < sp) why.push('closer than min spacing to start');
     S.points.forEach((q, j) => { if (j !== i && haversine(p, q) < sp) why.push(`closer than min spacing to P${j + 1}`); });
     if (why.length) S.warnings[p.id] = [...new Set(why)].join('; ');
@@ -466,16 +473,16 @@ async function loadConstraints() {
   if (S.constraints && S.constraintsKey === key) return true;
   const bb = bboxOfLL(S.boundary.rings.flat(), 0.002);
   const approxKm2 = ((bb[2] - bb[0]) * 111) * ((bb[3] - bb[1]) * 111 * Math.cos((bb[0] * Math.PI) / 180));
-  if (approxKm2 > 400 && !confirm(`That boundary's bounding box is about ${Math.round(approxKm2)} km². Loading map data may be slow or fail. Continue?\n(Tip: draw a smaller polygon inside it.)`)) return false;
-  status('Loading OSM terrain data (water, buildings, trails, cliffs…)…');
+  if (approxKm2 > 400 && !confirm(`That area is about ${Math.round(approxKm2)} square km. Loading map data may be slow or fail. Continue?\n\nTip: draw a smaller area inside it.`)) return false;
+  status('Loading map data…');
   try {
     S.constraints = await fetchConstraints(bb);
     S.constraintsKey = key;
-    status(`Map data loaded: ${S.constraints.trails.length} trail/road segments, ${S.constraints.avoidAreas.length} excluded areas.`, 'ok');
+    status(`Map data loaded. ${S.constraints.trails.length} trails and roads, ${S.constraints.avoidAreas.length} avoided areas.`, 'ok');
     return true;
   } catch (e) {
     S.constraints = null;
-    if (confirm(`Couldn't load OSM data (${e.message}).\n\nGenerate using only the boundary? Points will NOT be checked against water, buildings, cliffs or trails.`)) {
+    if (confirm(`Could not load map data: ${e.message}\n\nGenerate using only the area? Points will not be checked for water, buildings, cliffs or trails.`)) {
       S.constraints = { avoidAreas: [], avoidLines: [], trails: [], counts: {}, empty: true };
       S.constraintsKey = '';
       return true;
@@ -487,14 +494,14 @@ async function loadDem() {
   const key = boundaryKey();
   if (S.dem && S.demKey === key) return true;
   const bb = bboxOfLL(S.boundary.rings.flat(), 0.002);
-  status('Loading elevation data for the slope filter…');
+  status('Loading elevation data…');
   try {
     S.dem = await Dem.load(bb);
     S.demKey = key;
     return true;
   } catch (e) {
     S.dem = null;
-    return confirm(`Couldn't load elevation data (${e.message}).\n\nGenerate WITHOUT the slope filter? Points may land on steep ground.`);
+    return confirm(`Could not load elevation data: ${e.message}\n\nGenerate without the slope filter? Points may land on steep ground.`);
   }
 }
 function ensureBuilt(seed = (Math.random() * 2 ** 32) >>> 0) {
@@ -522,8 +529,8 @@ function ensureBuilt(seed = (Math.random() * 2 ** 32) >>> 0) {
 
 $('genBtn').onclick = async () => {
   readSettings();
-  if (!S.boundary) return status('Set a boundary first (step 1).', 'warn');
-  if (!S.start) return status('Set a start point first (step 2).', 'warn');
+  if (!S.boundary) return status('Set an area first.', 'warn');
+  if (!S.start) return status('Set a start point first.', 'warn');
   $('genBtn').disabled = true;
   try {
     if (!(await loadConstraints())) return status('Cancelled.', 'warn');
@@ -533,7 +540,7 @@ $('genBtn').onclick = async () => {
     const s = S.settings;
     if (!built.pool.length) {
       const why = Object.entries(built.stats.rejected).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}: ${v}`).join(', ');
-      return status(`No valid ground found. Rejected — ${why}. Loosen the walkability filters or the boundary.`, 'bad');
+      return status(`No valid ground found. Rejected: ${why}. Loosen the terrain filters or use a bigger area.`, 'bad');
     }
     const r = generateCourse({
       pool: built.pool, proj: built.proj, start: S.start, n: s.n, targetM: milesToM(s.miles),
@@ -548,7 +555,7 @@ $('genBtn').onclick = async () => {
     updateLink();
     const kept = built.stats.kept, grid = built.stats.grid;
     status(
-      (r.ok ? '' : `Couldn't hit the target distance in this area (best ${(r.error * 100).toFixed(0)}% off) — try a bigger boundary or a shorter target. `) +
+      (r.ok ? '' : `Could not reach the target distance here. Best was ${(r.error * 100).toFixed(0)}% off. Try a bigger area or a shorter distance. `) +
         `${kept} of ${grid} sampled spots were usable ground.`,
       r.ok ? 'ok' : 'warn',
     );
@@ -562,12 +569,12 @@ $('genBtn').onclick = async () => {
 function regen(i) {
   readSettings();
   const built = S.built ?? ensureBuilt();
-  if (!built) return status('Set boundary and start first.', 'warn');
+  if (!built) return status('Set an area and start first.', 'warn');
   const np = regeneratePoint({
     pool: built.pool, proj: built.proj, start: S.start, points: S.points, index: i,
     targetM: milesToM(S.settings.miles), minSpacing: S.settings.spacing, endAtStart: S.settings.endAtStart, rng: built.rng,
   });
-  if (!np) return status('No other spot fits the spacing rules for that point.', 'warn');
+  if (!np) return status('No other spot fits for that point.', 'warn');
   S.points[i] = { ...S.points[i], ...np };
   validatePoints();
   renderAll();
@@ -577,12 +584,12 @@ function regen(i) {
 $('addPt').onclick = () => {
   readSettings();
   const built = S.built ?? ensureBuilt();
-  if (!built) return status('Set boundary and start first.', 'warn');
+  if (!built) return status('Set an area and start first.', 'warn');
   const np = regeneratePoint({
     pool: built.pool, proj: built.proj, start: S.start, points: S.points, index: S.points.length,
     targetM: milesToM(S.settings.miles), minSpacing: S.settings.spacing, endAtStart: S.settings.endAtStart, rng: built.rng,
   });
-  if (!np) return status('No spot left that satisfies the spacing rules.', 'warn');
+  if (!np) return status('No spot left that fits.', 'warn');
   const existing = new Set(S.points.map((p) => p.id));
   let id;
   do { id = makePointIds(1)[0]; } while (existing.has(id));
@@ -669,4 +676,4 @@ if (S.boundary) {
 for (const id of ['n', 'miles', 'spacing', 'radius', 'limit', 'need', 'endAtStart', 'useSlope', 'maxSlope', 'useTrails', 'trailMax', 'offTrail', 'edge', 'name']) {
   $(id).addEventListener('change', () => { readSettings(); S.built = null; saveDraft(); renderTotal(); updateLink(); });
 }
-if (!S.boundary) status('Tip: type “Palmer Park” above, press Go, then “Find park boundaries in view”.');
+if (!S.boundary) status('Search a place, then tap Find park boundaries.');
