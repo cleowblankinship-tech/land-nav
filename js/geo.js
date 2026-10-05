@@ -30,6 +30,12 @@ export function bearing(a, b) {
   return (deg(Math.atan2(y, x)) + 360) % 360;
 }
 
+/** 16 wind compass point for a bearing, e.g. 47 -> "NE". */
+export function compassPoint(deg) {
+  const pts = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  return pts[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
+}
+
 /** Point `dist` metres from `a` along `brg` degrees. */
 export function destination(a, brg, dist) {
   const d = dist / EARTH_R;

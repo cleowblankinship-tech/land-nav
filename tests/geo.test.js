@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import proj4 from 'proj4';
 import {
   haversine, bearing, destination, toMGRS, fromMGRS, snapToMGRS, parseMGRSParts,
-  makeProjection, pointInRing, distToSegment, pointSegmentMeters, pathLength,
+  makeProjection, compassPoint, pointInRing, distToSegment, pointSegmentMeters, pathLength,
 } from '../js/geo.js';
 
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} ${a} vs ${b} (tol ${tol})`);
@@ -147,4 +147,14 @@ test('pointSegmentMeters ~ perpendicular distance in metres', () => {
   const mid = destination(a, 90, 1000);
   const p = destination(mid, 0, 40);
   near(pointSegmentMeters(p, a, b).dist, 40, 0.1);
+});
+
+test('compassPoint names bearings', () => {
+  assert.equal(compassPoint(0), 'N');
+  assert.equal(compassPoint(359), 'N');
+  assert.equal(compassPoint(47), 'NE');
+  assert.equal(compassPoint(90), 'E');
+  assert.equal(compassPoint(181), 'S');
+  assert.equal(compassPoint(275), 'W');
+  assert.equal(compassPoint(-10), 'N');
 });

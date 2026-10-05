@@ -110,6 +110,7 @@ function download(name, text, type = 'application/gpx+xml') {
 export function renderResults(root, course, run, track, { onNew } = {}) {
   const r = computeResults(course, run);
   root.innerHTML = `
+    <p><button id="newRunTop" class="primary" style="width:100%">Start a new run</button></p>
     <div class="result ${r.pass ? 'found' : 'bad'}">${r.pass ? 'PASS' : 'FAIL'}: ${r.valid} of ${course.pts.length} found within time<div class="small" style="font-weight:600">Standard: ${course.need} of ${course.pts.length} within ${fmtDuration(r.limitSec)}</div></div>
     <div class="card stat3">
       <div><div class="v">${r.found}/${course.pts.length}</div><div class="k">Found</div></div>
@@ -131,7 +132,7 @@ export function renderResults(root, course, run, track, { onNew } = {}) {
       <button id="copyRes">Copy results</button>
     </div>
     <div id="scoreBox"></div>
-    <p><button id="newRun" class="danger" style="width:100%">Start a new run</button></p>`;
+    <p><button id="newRun" style="width:100%">Start a new run</button></p>`;
   const found = run.found ?? {};
   const rev = createRevealMap(root.querySelector('#resmap'), course, { found, checkins: run.checkins ?? [], track });
   root.querySelector('#expGpx').onclick = () => {
@@ -143,6 +144,7 @@ export function renderResults(root, course, run, track, { onNew } = {}) {
     catch { prompt('Copy:', resultsText(course, run)); }
   };
   root.querySelector('#newRun').onclick = () => onNew?.();
+  root.querySelector('#newRunTop').onclick = () => onNew?.();
   renderGpxScoring(root.querySelector('#scoreBox'), course, { rev, startMs: run.startedAt });
 }
 

@@ -1,6 +1,7 @@
 // Navigator mode. NO map and NO "you are here" while a run is active.
 import { decodeCourse, mgrs8, fmtDuration } from './course.js';
 import { averageFixes, evaluateCheckin } from './checkin.js';
+import { haversine, bearing, compassPoint, toMGRS } from './geo.js';
 import { renderResults } from './results.js';
 import { store } from './store.js';
 
@@ -53,6 +54,7 @@ function limitText(min) {
 
 function showPlan() {
   document.getElementById('topTitle').textContent = 'Plan';
+  const prevRun = run && run.endedAt && run.code === course.code ? run : null;
   app.innerHTML = `
     <h1>${esc(course.name)}</h1>
     <div class="card">
@@ -65,8 +67,69 @@ function showPlan() {
         <div><div class="mg">${mgrs8(p)}</div><div class="pid">ID ${esc(p.id)}</div></div><div></div></div>`).join('')}</div>
     <div class="banner">Plot your points first. The clock starts when you press the button. The screen stays on and a GPS track is recorded. No map is shown while you run.</div>
     <button id="start" class="primary" style="width:100%;min-height:84px;font-size:1.4rem">START CLOCK</button>
-    <div id="startMsg"></div>`;
+    <div id="startMsg"></div>
+    <button id="practice" style="width:100%;margin-top:10px">Practice mode</button>
+    <div class="small muted" style="text-align:center">Shows distance and direction to each point. Not scored.</div>
+    ${prevRun ? `<div class="card"><div class="small muted">Starting replaces your last results for this course.</div>
+      <button id="lastRes" style="width:100%;margin-top:8px">View last results</button></div>` : ''}`;
   document.getElementById('start').onclick = startRun;
+  document.getElementById('practice').onclick = showPractice;
+  if (prevRun) document.getElementById('lastRes').onclick = showResults;
+}
+
+// ------------------------------------------------------------ practice ----
+// Learning aid, deliberately separate from a real run: live distance and
+// bearing to every point plus your own MGRS. Nothing is scored or saved.
+let practiceWatch = null;
+let practiceTimer = null;
+
+function stopPractice() {
+  if (practiceWatch != null) navigator.geolocation.clearWatch(practiceWatch);
+  practiceWatch = null;
+  clearInterval(practiceTimer);
+  try { wakeLock?.release(); } catch { /* ignore */ }
+  wakeLock = null;
+}
+
+function showPractice() {
+  document.getElementById('topTitle').textContent = 'Practice';
+  const decl = store.get('ln.decl', 7);
+  app.innerHTML = `
+    <div class="banner warn"><b>Practice mode.</b> Not scored and nothing is saved. Use it to check your plotting and your compass work.</div>
+    <div class="card"><div class="small muted">YOU ARE AT</div>
+      <div class="mono" id="me" style="font-size:1.4rem;font-weight:800">Finding GPS…</div>
+      <div class="small muted" id="acc"></div></div>
+    <label>Declination in degrees east, from your map
+      <input id="decl" type="number" step="0.5" inputmode="decimal" value="${decl}"></label>
+    <div class="small muted">Magnetic bearing is true bearing minus declination.</div>
+    <div class="plist" id="pp"></div>
+    <button id="stopPractice" class="primary" style="width:100%">Done</button>`;
+  let fix = null;
+  document.getElementById('decl').onchange = (e) => { store.set('ln.decl', parseFloat(e.target.value) || 0); draw(); };
+  const draw = () => {
+    if (!fix) return;
+    const d = parseFloat(document.getElementById('decl').value) || 0;
+    document.getElementById('me').textContent = toMGRS(fix.lat, fix.lon, 4);
+    document.getElementById('acc').textContent = `GPS ±${Math.round(fix.acc)} m`;
+    document.getElementById('pp').innerHTML = course.pts.map((p, i) => {
+      const dist = haversine(fix, p);
+      const tb = bearing(fix, p);
+      const mb = (((tb - d) % 360) + 360) % 360;
+      const near = dist <= course.radius;
+      return `<div class="prow ${near ? 'found' : ''}"><div class="lbl">P${i + 1}</div>
+        <div><div class="mg">${mgrs8(p)}</div>
+          <div class="pid">True ${Math.round(tb)}° ${compassPoint(tb)}, magnetic ${Math.round(mb)}°</div></div>
+        <div class="st" style="font-size:1.2rem">${near ? 'IN RANGE' : Math.round(dist) + ' m'}${near ? `<br><span class="small">${Math.round(dist)} m</span>` : ''}</div></div>`;
+    }).join('');
+  };
+  practiceWatch = navigator.geolocation.watchPosition(
+    (p) => { fix = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy }; },
+    (e) => { document.getElementById('me').textContent = e.code === 1 ? 'Location is blocked' : 'No GPS yet'; },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 },
+  );
+  practiceTimer = setInterval(draw, 1000);
+  lockScreen();
+  document.getElementById('stopPractice').onclick = () => { stopPractice(); showPlan(); };
 }
 
 function startRun() {
@@ -92,6 +155,7 @@ function startRun() {
 }
 
 function begin() {
+  stopPractice();
   run = { code: course.code, startedAt: Date.now(), endedAt: null, found: {}, checkins: [] };
   track = [];
   saveRun();
@@ -312,11 +376,7 @@ function showResults() {
   document.getElementById('topTitle').textContent = 'Results';
   renderResults(app, course, run, track, {
     onNew: () => {
-      if (!confirm('Clear these results and start a new run? (Export the GPX first if you want to keep the track.)')) return;
-      store.del(RUN_KEY);
-      store.del(TRACK_KEY);
-      run = null;
-      track = [];
+      window.scrollTo(0, 0);
       showPlan();
     },
   });
@@ -336,7 +396,7 @@ function boot() {
   if (hash) {
     let c;
     try { c = decodeCourse(hash); } catch (e) { return showEnterCode(e.message); }
-    if (run && run.code === c.code) return resume();
+    if (run && run.code === c.code && !run.endedAt) return resume();
     if (active()) {
       course = decodeCourse(run.code);
       app.innerHTML = `<div class="card"><h2>Run in progress</h2>
