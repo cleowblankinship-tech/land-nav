@@ -11,6 +11,7 @@ phone's GPS only *confirms* a find. Static site, no backend, no accounts. Works 
 | `setup.html` | course setter | boundary (OSM/Overpass or hand-drawn), start point, point generation, lane card, share link, printable MGRS-grid map |
 | `card.html#…` | navigator | printable lane card (no map): start + P1–Pn MGRS, IDs, time limit |
 | `run.html#…` | navigator | plan, then clock and check-ins (no map, no position), then results and reveal map. Practice mode on the plan screen shows live distance and bearing, unscored |
+| `printmap.html` | course setter | exact scale 1:25,000 print sheets with a 1 km MGRS grid, 100 m edge ticks, scale bar, 100 mm calibration line and G-M angle. Multiple overlapping sheets for big areas. No course points |
 | `score.html` | either | score a GPX file (Strava/Garmin) against a course |
 
 ## How check-in works
