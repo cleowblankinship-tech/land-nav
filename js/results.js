@@ -36,6 +36,7 @@ export function computeResults(course, run) {
     misses: checkins.filter((c) => c.result === 'miss').length,
     inconclusive: checkins.filter((c) => c.result === 'poor').length,
     checkins: checkins.length,
+    practiceLooks: run.practiceLooks || 0,
   };
 }
 
@@ -43,7 +44,7 @@ export function resultsText(course, run) {
   const r = computeResults(course, run);
   const lines = [
     `${course.name}: ${r.pass ? 'PASS' : 'FAIL'}. ${r.valid} of ${course.pts.length} found within time, need ${course.need}.`,
-    `Total time ${fmtDuration(r.totalSec)} of ${fmtDuration(r.limitSec)} · missed check-ins ${r.misses}`,
+    `Total time ${fmtDuration(r.totalSec)} of ${fmtDuration(r.limitSec)}. Missed check ins ${r.misses}.${r.practiceLooks ? ` Azimuth checks used ${r.practiceLooks}.` : ''}`,
   ];
   for (const x of r.rows) {
     lines.push(`P${x.i + 1} ${x.p.id}: ${x.f ? `${fmtDuration(x.elapsed)} (split ${fmtDuration(x.split)})${x.late ? ' LATE' : ''}` : 'not found'}`);
@@ -117,6 +118,7 @@ export function renderResults(root, course, run, track, { onNew } = {}) {
       <div><div class="v ${r.totalSec > r.limitSec ? 'fail' : ''}">${fmtDuration(r.totalSec)}</div><div class="k">Total time</div></div>
       <div><div class="v">${r.misses}</div><div class="k">Misses</div></div>
     </div>
+    ${r.practiceLooks ? `<div class="small muted">Azimuth checks used during the run: ${r.practiceLooks}.</div>` : ''}
     ${r.inconclusive ? `<div class="small muted">${r.inconclusive} check ins had weak GPS and were not counted as misses.</div>` : ''}
     <div class="card"><table class="tbl">
       <tr><th>Pt</th><th>ID</th><th>Result</th><th>Time</th><th>Split</th></tr>

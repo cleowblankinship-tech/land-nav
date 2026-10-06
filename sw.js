@@ -11,7 +11,7 @@ const SHELL = [
   './', 'index.html', 'setup.html', 'run.html', 'score.html', 'card.html', 'printmap.html', 'manifest.webmanifest',
   'css/style.css',
   'js/basemaps.js', 'js/card.js', 'js/checkin.js', 'js/course.js', 'js/dem.js', 'js/generate.js', 'js/geo.js', 'js/gpx.js',
-  'js/grid.js', 'js/osm.js', 'js/print.js', 'js/printmap.js', 'js/results.js', 'js/run.js', 'js/score.js', 'js/setup.js', 'js/store.js',
+  'js/grid.js', 'js/library.js', 'js/osm.js', 'js/print.js', 'js/printmap.js', 'js/results.js', 'js/run.js', 'js/score.js', 'js/setup.js', 'js/store.js',
   'vendor/leaflet.js', 'vendor/leaflet.css', 'vendor/mgrs.js', 'vendor/proj4.js',
   'vendor/images/layers.png', 'vendor/images/layers-2x.png', 'vendor/images/marker-icon.png', 'vendor/images/marker-shadow.png',
   'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',

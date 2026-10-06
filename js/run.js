@@ -91,11 +91,14 @@ function stopPractice() {
   wakeLock = null;
 }
 
-function showPractice() {
+function showPractice(fromRun = false) {
   document.getElementById('topTitle').textContent = 'Practice';
   const decl = store.get('ln.decl', 7);
   app.innerHTML = `
-    <div class="banner warn"><b>Practice mode.</b> Not scored and nothing is saved. Use it to check your plotting and your compass work.</div>
+    ${fromRun
+      ? `<div class="banner warn"><b>Practice mode.</b> Your clock is still running. Azimuth checks you take here are counted in your results.</div>
+         <div class="clock" style="padding:0"><div class="sub" id="pClkLbl"></div><div class="big" id="pClk" style="font-size:2.2rem"></div></div>`
+      : `<div class="banner warn"><b>Practice mode.</b> Not scored and nothing is saved. Use it to check your plotting and your compass work.</div>`}
     <div class="card"><div class="small muted">YOU ARE AT</div>
       <div class="mono" id="me" style="font-size:1.4rem;font-weight:800">Finding GPS…</div>
       <div class="small muted" id="acc"></div></div>
@@ -117,7 +120,7 @@ function showPractice() {
       <input id="decl" type="number" step="0.5" inputmode="decimal" value="${decl}"></label>
     <div class="small muted">Magnetic bearing is true bearing minus declination.</div>
     <div class="plist" id="pp"></div>
-    <button id="stopPractice" class="primary" style="width:100%">Done</button>`;
+    <button id="stopPractice" class="primary" style="width:100%">${fromRun ? 'Back to run' : 'Done'}</button>`;
   let fix = null;
   document.getElementById('decl').onchange = (e) => { store.set('ln.decl', parseFloat(e.target.value) || 0); draw(); };
   const draw = () => {
@@ -201,6 +204,7 @@ function showPractice() {
       return;
     }
     az = { pos, at: Date.now() };
+    if (fromRun && active()) { run.practiceLooks = (run.practiceLooks || 0) + 1; saveRun(); }
     drawAz();
   };
   const pick = (v) => async () => {
@@ -221,9 +225,17 @@ function showPractice() {
     (e) => { document.getElementById('me').textContent = e.code === 1 ? 'Location is blocked' : 'No GPS yet'; },
     { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 },
   );
-  practiceTimer = setInterval(draw, 1000);
+  const clockTick = () => {
+    if (!fromRun || !active()) return;
+    const remaining = course.limitMin * 60 - (Date.now() - run.startedAt) / 1000;
+    document.getElementById('pClk').textContent = remaining >= 0 ? fmtDuration(remaining) : '+' + fmtDuration(-remaining);
+    document.getElementById('pClk').classList.toggle('over', remaining < 0);
+    document.getElementById('pClkLbl').textContent = remaining >= 0 ? 'Time remaining' : 'Over time';
+  };
+  clockTick();
+  practiceTimer = setInterval(() => { draw(); clockTick(); }, 1000);
   lockScreen();
-  document.getElementById('stopPractice').onclick = () => { stopPractice(); showPlan(); };
+  document.getElementById('stopPractice').onclick = () => { stopPractice(); if (fromRun && active()) showActive(); else showPlan(); };
 }
 
 function startRun() {
@@ -266,6 +278,7 @@ function showActive() {
       <div><div class="v">${course.need}</div><div class="k">To pass</div></div>
       <div><div class="v" id="nMiss">0</div><div class="k">Misses</div></div></div>
     <button id="checkin" class="primary checkin">Check in</button>
+    <button id="practiceRun" style="width:100%;margin-top:10px">Practice mode</button>
     <div class="pbar hidden" id="pbar" style="margin-top:10px"><div></div></div>
     <div id="out" aria-live="polite"></div>
     <div class="plist" id="plist"></div>
@@ -273,6 +286,7 @@ function showActive() {
     <div class="small muted" id="foot"></div>
     <p style="margin-top:18px"><button id="end" class="danger" style="width:100%">End course</button></p>`;
   document.getElementById('checkin').onclick = doCheckin;
+  document.getElementById('practiceRun').onclick = () => showPractice(true);
   document.getElementById('end').onclick = () => {
     const n = Object.keys(run.found).length;
     if (confirm(`End the course now?\n\nYou have found ${n} of ${course.pts.length}.`)) endRun();

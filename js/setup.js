@@ -6,6 +6,7 @@ import { createGridLayer } from './grid.js';
 import { store } from './store.js';
 import { makeBases } from './basemaps.js';
 import { Dem } from './dem.js';
+import { listCourses, getCourse, saveCourse, deleteCourse, duplicateCourse, describeCourse, newId } from './library.js';
 
 // If an element is missing (for example a stale cached page), keep going
 // instead of letting one null take every button down with it.
@@ -27,6 +28,7 @@ function defaultSettings() {
 
 // ------------------------------------------------------------------ state ---
 const S = {
+  id: null, // id in My courses once the course has points
   name: '',
   boundary: null, // { rings:[[{lat,lon}]], holes:[[{lat,lon}]], label }
   start: null,
@@ -70,11 +72,26 @@ function writeSettings() {
 
 function saveDraft() {
   readSettings();
-  store.set(DRAFT_KEY, { name: S.name, boundary: S.boundary, start: S.start, points: S.points, settings: S.settings });
+  store.set(DRAFT_KEY, { id: S.id, name: S.name, boundary: S.boundary, start: S.start, points: S.points, settings: S.settings });
+  saveToLibrary();
+}
+
+// Every edit to a course that has points is saved into My courses.
+function saveToLibrary() {
+  if (!S.points.length || !S.start) return;
+  if (!S.id) S.id = newId();
+  const name = S.name || S.boundary?.label || 'Course';
+  const ok = saveCourse({
+    id: S.id, name, savedAt: Date.now(),
+    data: { name, boundary: S.boundary, start: S.start, points: S.points, settings: S.settings },
+  });
+  if (!ok) status('Could not save this course. Browser storage is full. Delete an old course.', 'bad');
+  renderLibrary();
 }
 function loadDraft() {
   const d = store.get(DRAFT_KEY);
   if (!d) return;
+  S.id = d.id || null;
   S.name = d.name || '';
   S.boundary = d.boundary || null;
   S.start = d.start || null;
@@ -234,6 +251,68 @@ map.on('click', (e) => {
   }
 });
 
+// ------------------------------------------------------------ My courses ---
+function renderLibrary() {
+  const box = $('libList');
+  const all = listCourses();
+  $('libEmpty').classList.toggle('hidden', all.length > 0);
+  if (!box.appendChild) return;
+  box.innerHTML = '';
+  for (const c of all) {
+    const row = document.createElement('div');
+    row.className = 'pt-row';
+    row.style.gridTemplateColumns = '1fr auto';
+    const current = c.id === S.id;
+    row.innerHTML = `<div class="pt-main"><div class="m">${escHtml(c.name)}</div>
+      <div class="small muted">${describeCourse(c)}${current ? ', editing now' : ''}</div></div>
+      <div class="pt-actions"><button class="small" data-act="open">${current ? 'Reload' : 'Open'}</button>
+      <button class="small" data-act="copy">Copy</button>
+      <button class="small danger" data-act="del">Delete</button></div>`;
+    row.querySelector('[data-act=open]').onclick = () => openCourse(c.id);
+    row.querySelector('[data-act=copy]').onclick = () => { const cp = duplicateCourse(c.id); renderLibrary(); if (cp) status(`Copied as ${cp.name}.`, 'ok'); };
+    row.querySelector('[data-act=del]').onclick = () => {
+      if (!confirm(`Delete ${c.name}?`)) return;
+      deleteCourse(c.id);
+      if (S.id === c.id) S.id = null;
+      saveDraftOnly();
+      renderLibrary();
+    };
+    box.append(row);
+  }
+}
+const escHtml = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+function saveDraftOnly() {
+  readSettings();
+  store.set(DRAFT_KEY, { id: S.id, name: S.name, boundary: S.boundary, start: S.start, points: S.points, settings: S.settings });
+}
+
+function openCourse(id) {
+  const c = getCourse(id);
+  if (!c) return status('That course is gone.', 'warn');
+  if (!S.id && (S.boundary || S.start) && !S.points.length && !confirm('Replace what is on the screen?')) return;
+  cancelDraw();
+  const d = c.data;
+  Object.assign(S, {
+    id: c.id, name: d.name || c.name, boundary: d.boundary || null, start: d.start || null,
+    points: d.points || [], settings: { ...defaultSettings(), ...(d.settings || {}) },
+    constraints: null, constraintsKey: '', dem: null, demKey: '', built: null, warnings: {},
+  });
+  writeSettings();
+  $('boundaryRes').innerHTML = '';
+  $('placeRes').innerHTML = '';
+  renderAll();
+  updateLink();
+  saveDraftOnly();
+  renderLibrary();
+  if (S.boundary) {
+    const bb = bboxOfLL(S.boundary.rings.flat());
+    map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], { padding: [20, 20] });
+  } else if (S.start) map.setView([S.start.lat, S.start.lon], 14);
+  status(`Opened ${c.name}. Edits save automatically.`, 'ok');
+  $('libBox').open = false;
+  panelEl.scrollTop = 0;
+}
+
 // ------------------------------------------------------- clear / restart ---
 function cancelDraw() {
   drawLayer.clearLayers();
@@ -278,7 +357,7 @@ $('startOver').onclick = () => {
   cancelDraw();
   store.del(DRAFT_KEY);
   Object.assign(S, {
-    name: '', boundary: null, start: null, points: [], settings: defaultSettings(),
+    id: null, name: '', boundary: null, start: null, points: [], settings: defaultSettings(),
     constraints: null, constraintsKey: '', dem: null, demKey: '', built: null, warnings: {},
   });
   writeSettings();
@@ -660,6 +739,8 @@ $('printMap').onclick = () => {
 loadDraft();
 writeSettings();
 renderAll();
+renderLibrary();
+if (listCourses().length) $('libBox').open = true;
 updateLink();
 if (S.boundary) {
   const bb = bboxOfLL(S.boundary.rings.flat());
