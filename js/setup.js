@@ -640,29 +640,21 @@ $('shareLink').onclick = async () => {
 };
 $('linkOut').onclick = (e) => e.target.select();
 
-// print the grid map without the course
-let hiddenForPrint = false;
-function hideCourse() {
-  if (!hiddenForPrint) return;
-  map.removeLayer(courseLayer);
-  map.removeLayer(exclLayer);
-  map.removeLayer(trailLayer);
-}
+// exact scale 1:25,000 print sheets (no course points)
 $('printMap').onclick = () => {
-  if (!map.hasLayer(gridLayer)) gridLayer.addTo(map);
-  hiddenForPrint = true;
-  hideCourse();
-  map.invalidateSize();
-  setTimeout(() => window.print(), 400);
+  let bbox, rings = null;
+  if (S.boundary) {
+    bbox = bboxOfLL(S.boundary.rings.flat(), 0.002);
+    rings = S.boundary.rings;
+  } else if (S.start) {
+    bbox = bboxOfLL([S.start], 0.015);
+  } else {
+    return status('Set an area or a start first.', 'warn');
+  }
+  readSettings();
+  store.set('ln.printreq', { name: S.name || S.boundary?.label || 'Course area', bbox, rings });
+  window.open('printmap.html', '_blank');
 };
-window.addEventListener('afterprint', () => {
-  if (!hiddenForPrint) return;
-  hiddenForPrint = false;
-  courseLayer.addTo(map);
-  renderAll();
-  map.invalidateSize();
-});
-window.addEventListener('beforeprint', () => map.invalidateSize());
 
 // ------------------------------------------------------------------ init ---
 loadDraft();
