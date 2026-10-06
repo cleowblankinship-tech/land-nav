@@ -21,3 +21,9 @@ test('manifest icons exist', () => {
   const m = JSON.parse(readFileSync('manifest.webmanifest', 'utf8'));
   for (const i of m.icons) assert.ok(existsSync(i.src), i.src);
 });
+
+test('deploy workflow ships every html page and every precached file', () => {
+  const wf = readFileSync('.github/workflows/pages.yml', 'utf8');
+  assert.match(wf, /cp \*\.html /, 'workflow must copy all html pages, not a hand-kept list');
+  for (const dir of ['css', 'js', 'vendor', 'icons']) assert.match(wf, new RegExp(`cp -r [^\\n]*\\b${dir}\\b`), `${dir} not copied`);
+});

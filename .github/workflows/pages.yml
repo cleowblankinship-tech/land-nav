@@ -37,7 +37,7 @@ jobs:
       - name: Assemble site (only the files the browser needs)
         run: |
           mkdir _site
-          cp index.html setup.html run.html score.html card.html sw.js manifest.webmanifest _site/
+          cp *.html sw.js manifest.webmanifest _site/
           cp -r css js vendor icons _site/
           # fresh service-worker cache name per deploy so phones pick up updates
           sed -i "s/__BUILD__/${GITHUB_SHA::8}/" _site/sw.js
