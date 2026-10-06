@@ -103,8 +103,7 @@ function showPractice() {
       <h2>Azimuth Check</h2>
       <div class="grid2" style="grid-template-columns:1fr">
         <button id="azLoc" class="olive" type="button">My location</button>
-        <button id="azDist" class="olive" type="button">Distance from each point</button>
-        <button id="azDirBtn" class="olive" type="button">Direction from each point</button>
+        <button id="azDirBtn" class="olive" type="button">Distance and direction</button>
       </div>
       <div class="pbar hidden" id="azBar" style="margin-top:8px"><div></div></div>
       <div id="azOut" style="margin-top:10px"></div>
@@ -137,9 +136,9 @@ function showPractice() {
         <div class="st" style="font-size:1.2rem">${near ? 'IN RANGE' : Math.round(dist) + ' m'}${near ? `<br><span class="small">${Math.round(dist)} m</span>` : ''}</div></div>`;
     }).join('');
   };
-  // Azimuth Check: average a few seconds of GPS, then answer one of three questions.
+  // Azimuth Check: average a few seconds of GPS, then answer one of two questions.
   let az = null; // {pos, at}
-  let azView = null; // 'loc' | 'dist' | 'dir'
+  let azView = null; // 'loc' | 'dir'
   let azToPoint = false; // direction FROM each point (to you) by default
   let azMagnetic = true;
   let azFixes = null;
@@ -149,7 +148,7 @@ function showPractice() {
     const out = document.getElementById('azOut');
     document.getElementById('azDir').textContent = azToPoint ? 'To point' : 'From point';
     document.getElementById('azNorth').textContent = azMagnetic ? 'Magnetic' : 'True';
-    for (const [id, v] of [['azLoc', 'loc'], ['azDist', 'dist'], ['azDirBtn', 'dir']]) {
+    for (const [id, v] of [['azLoc', 'loc'], ['azDirBtn', 'dir']]) {
       document.getElementById(id).classList.toggle('primary', azView === v);
       document.getElementById(id).classList.toggle('olive', azView !== v);
     }
@@ -161,22 +160,20 @@ function showPractice() {
     if (azView === 'loc') {
       out.innerHTML = `<div class="small muted">YOU ARE AT</div>${line(toMGRS(az.pos.lat, az.pos.lon, 4))}
         <div class="small muted" style="margin-top:6px">${az.pos.lat.toFixed(5)}, ${az.pos.lon.toFixed(5)}</div>${note}`;
-    } else if (azView === 'dist') {
-      out.innerHTML = course.pts.map((p, i) => line(`P${i + 1}&nbsp; ${Math.round(haversine(az.pos, p))} m`)).join('') + note;
     } else {
       const d = parseFloat(document.getElementById('decl').value) || 0;
       out.innerHTML = `<div class="small muted">${azToPoint ? 'From you to each point' : 'From each point to you'}, ${azMagnetic ? 'magnetic' : 'true'} azimuth.</div>` +
         course.pts.map((p, i) => {
           let b = azToPoint ? bearing(az.pos, p) : bearing(p, az.pos);
           if (azMagnetic) b = (((b - d) % 360) + 360) % 360;
-          return line(`P${i + 1}&nbsp; ${fmtAz(b)}`);
+          return line(`P${i + 1}&nbsp; ${Math.round(haversine(az.pos, p))} m&nbsp; ${fmtAz(b)}`);
         }).join('') + note;
     }
   };
   const readGps = async () => {
     if (azFixes) return;
     const bar = document.getElementById('azBar');
-    const btns = ['azLoc', 'azDist', 'azDirBtn', 'azAgain'].map((id) => document.getElementById(id));
+    const btns = ['azLoc', 'azDirBtn', 'azAgain'].map((id) => document.getElementById(id));
     btns.forEach((b) => { b.disabled = true; });
     document.getElementById('azOut').innerHTML = '<div class="muted">Reading GPS…</div>';
     bar.classList.remove('hidden');
@@ -211,7 +208,6 @@ function showPractice() {
     if (!az) await readGps(); else drawAz();
   };
   document.getElementById('azLoc').onclick = pick('loc');
-  document.getElementById('azDist').onclick = pick('dist');
   document.getElementById('azDirBtn').onclick = pick('dir');
   document.getElementById('azAgain').onclick = readGps;
   document.getElementById('azDir').onclick = () => { azToPoint = !azToPoint; drawAz(); };
